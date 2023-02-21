@@ -104,8 +104,8 @@ const main = async () => {
     fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2))
 
     // Set XML Author, Email, Name, and Description from package.json
-    psXML.publisher.$.name = packageJson.author.name
-    psXML.publisher.contact.$.email = packageJson.author.email
+    psXML.plugin.publisher.$.name = packageJson.author.name
+    psXML.plugin.publisher.contact.$.email = packageJson.author.email
     psXML.plugin.$.name = packageJson.author.name
     psXML.plugin.$.description = packageJson.description
 
