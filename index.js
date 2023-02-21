@@ -33,8 +33,9 @@ import path from 'path'
 import xml2js from 'xml2js'
 import archiver from 'archiver'
 import calver from 'calver'
+import util from 'util'
 
-const format = 'yyyy.mm.dd.patch' // CalVer filename format
+const format = 'yy.mm.dd.patch' // CalVer filename format
 const archive_directory = 'plugin_archive'
 const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json']
 let errCount = 0
@@ -82,12 +83,13 @@ const main = async () => {
     const xml = fs.readFileSync('plugin.xml', 'utf8')
     const psXML = await xml2js.parseStringPromise(xml)
 
-    console.log( psXML )
-
     // TODO: Need to refactor
     const packageJsonString = fs.readFileSync('package.json', 'utf8')
     // Parse the 'package.json' string into an object
     const packageJson = JSON.parse(packageJsonString)
+
+    console.log(util.inspect( psXML, {showHidden: false, depth: null, colors: true} ) )
+    console.log(util.inspect( packageJson, {showHidden: false, depth: null, colors: true} ) )
 
     const logErr = (err) => {
       console.error(err)
@@ -103,13 +105,7 @@ const main = async () => {
     // Write the updated 'package.json' object back to the file
     fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2))
 
-    // Set XML Author, Email, Name, and Description from package.json
-    psXML.plugin.publisher.$.name = packageJson.author.name
-    psXML.plugin.publisher.contact.$.email = packageJson.author.email
-    psXML.plugin.$.name = packageJson.author.name
-    psXML.plugin.$.description = packageJson.description
-
-    zipFileName = `${packageJson.name.replaceAll(' ', '_')}-${newVersion}.zip`
+    zipFileName = `${psXML.plugin.$.name.replaceAll(' ', '_')}-${newVersion}.zip`
 
     const builder = new xml2js.Builder()
     const xmlOutput = builder.buildObject(psXML)
