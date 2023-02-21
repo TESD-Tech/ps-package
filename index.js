@@ -77,6 +77,26 @@ const removeJunk = async (dir) => {
   })
 }
 
+const updatePackageJson = (v) => {
+  try {
+    // Read the contents of 'package.json'
+    const packageJsonString = fs.readFileSync('package.json', 'utf8')
+
+    // Parse the 'package.json' string into an object
+    const packageJson = JSON.parse(packageJsonString)
+
+    // Update the 'version' field with the value of 'v'
+    packageJson.version = v
+
+    // Write the updated 'package.json' object back to the file
+    fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2))
+  }
+  catch (error) {
+    // Handle any errors that may have occurred
+    console.error(error)
+  }
+}
+
 const main = async () => {
   try {
     // Parse the xml file 'ps-plugin.xml' using xml2js and store the result in 'psXML'
@@ -88,9 +108,6 @@ const main = async () => {
     // Parse the 'package.json' string into an object
     const packageJson = JSON.parse(packageJsonString)
 
-    console.log(util.inspect( psXML, {showHidden: false, depth: null, colors: true} ) )
-    console.log(util.inspect( packageJson, {showHidden: false, depth: null, colors: true} ) )
-
     const logErr = (err) => {
       console.error(err)
       errCount += 1
@@ -101,9 +118,7 @@ const main = async () => {
     // Update version in ps-plugin.xml, dist/plugin.xml, and package.json
     const newVersion = calver.inc(format, packageJson.version, 'calendar.patch')
     psXML.plugin.$.version = newVersion
-    
-    // Write the updated 'package.json' object back to the file
-    fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2))
+    updatePackageJson(newVersion)
 
     zipFileName = `${psXML.plugin.$.name.replaceAll(' ', '_')}-${newVersion}.zip`
 
