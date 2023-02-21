@@ -1,7 +1,8 @@
 {
-  "name": "ps-package",
+  "name": "@TESD-Tech/ps-package",
   "version": "23.2.21",
   "description": "Create and manage PowerSchool plugin archives",
+  "bin": "./index.js",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
