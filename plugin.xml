@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<plugin xmlns="http://plugin.powerschool.pearson.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" description="Public facing pre-registration form." name="TE Tech Pre-Registration" version="2023.2.21.2" xsi:schemaLocation="http://plugin.powerschool.pearson.com plugin.xsd">
+  <publisher name="Benjamin Kemp">
+    <contact email="kempb@tesd.net"/>
+  </publisher>
+  <access_request>
+    <cdn_request>
+      <cdn name="https://*.google.com"/>
+      <cdn name="https://*.firebaseapp.com/"/>
+    </cdn_request>
+  </access_request>
+</plugin>

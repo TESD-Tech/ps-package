@@ -76,31 +76,18 @@ const removeJunk = async (dir) => {
   })
 }
 
-const updatePackageJson = (v) => {
-  try {
-    // Read the contents of 'package.json'
-    const packageJsonString = fs.readFileSync('package.json', 'utf8')
-
-    // Parse the 'package.json' string into an object
-    const packageJson = JSON.parse(packageJsonString)
-
-    // Update the 'version' field with the value of 'v'
-    packageJson.version = v
-
-    // Write the updated 'package.json' object back to the file
-    fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2))
-  }
-  catch (error) {
-    // Handle any errors that may have occurred
-    console.error(error)
-  }
-}
-
 const main = async () => {
   try {
     // Parse the xml file 'ps-plugin.xml' using xml2js and store the result in 'psXML'
-    const xml = fs.readFileSync('ps-plugin.xml', 'utf8')
+    const xml = fs.readFileSync('plugin.xml', 'utf8')
     const psXML = await xml2js.parseStringPromise(xml)
+
+    console.log( psXML )
+
+    // TODO: Need to refactor
+    const packageJsonString = fs.readFileSync('package.json', 'utf8')
+    // Parse the 'package.json' string into an object
+    const packageJson = JSON.parse(packageJsonString)
 
     const logErr = (err) => {
       console.error(err)
@@ -110,15 +97,23 @@ const main = async () => {
     // console.dir(psXML)
 
     // Update version in ps-plugin.xml, dist/plugin.xml, and package.json
-    const newVersion = calver.inc(format, psXML.plugin.$.version, 'calendar.patch')
+    const newVersion = calver.inc(format, packageJson.version, 'calendar.patch')
     psXML.plugin.$.version = newVersion
-    updatePackageJson(newVersion)
+    
+    // Write the updated 'package.json' object back to the file
+    fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2))
 
-    zipFileName = `${psXML.plugin.$.name.replaceAll(' ', '_')}-${newVersion}.zip`
+    // Set XML Author, Email, Name, and Description from package.json
+    psXML.publisher.$.name = packageJson.author.name
+    psXML.publisher.contact.$.email = packageJson.author.email
+    psXML.plugin.$.name = packageJson.author.name
+    psXML.plugin.$.description = packageJson.description
+
+    zipFileName = `${packageJson.name.replaceAll(' ', '_')}-${newVersion}.zip`
 
     const builder = new xml2js.Builder()
     const xmlOutput = builder.buildObject(psXML)
-    fs.writeFileSync('ps-plugin.xml', xmlOutput)
+    fs.writeFileSync('plugin.xml', xmlOutput)
     fs.writeFileSync('dist/plugin.xml', xmlOutput)
 
     // Remove junk files
