@@ -116,7 +116,13 @@ const main = async () => {
     // console.dir(psXML)
 
     // Update version in ps-plugin.xml, dist/plugin.xml, and package.json
-    const newVersion = calver.inc(format, packageJson.version, 'calendar.patch')
+    let newVersion
+    try {
+      newVersion = calver.inc(format, packageJson.version, 'calendar.patch')
+    } catch (error) {
+      newVersion = calver.inc(format, '', 'calendar.patch')
+    }
+
     psXML.plugin.$.version = newVersion
     updatePackageJson(newVersion)
 
