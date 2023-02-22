@@ -37,7 +37,7 @@ import calver from 'calver'
 const archive_directory = 'plugin_archive'
 const build_directory = 'dist'
 const src_directory = 'src'
-const psFolders = ['user_schema_root', 'queries_root']
+const psFolders = ['user_schema_root', 'queries_root', 'WEB_ROOT']
 
 const format = 'yy.mm.dd.patch' // CalVer filename format
 const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json']
@@ -92,16 +92,18 @@ const mergePSfolders = async (dir) => {
 
   return new Promise((resolve, reject) => {
     psFolders.forEach((folder) => {
-      if (fs.existsSync(`${dir}/${folder}`)) {
-        fs.unlink(`${dir}/${folder}`, (err) => {
+      if (fs.existsSync(`${dir}/${folder}`) && folder !== 'WEB_ROOT') {
+        console.log(folder)
+        // Clear out everything except WEB_ROOT
+        fs.rm(`${dir}/${folder}`, {recursive: true }, (err) => {
           if (err)
             reject(err)
           else
             console.log(`Removed ${dir}/${folder}`)
         })
       }
-      if (fs.existsSync(`${src_directory}/${folder}`))
-        fs.cpSync(`${src_directory}/${folder}`, `${dir}/${folder}`, {recursive: true})
+      if (fs.existsSync(`${src_directory}/powerschool/${folder}`))
+        fs.cpSync(`${src_directory}/powerschool/${folder}`, `${dir}/${folder}`, { recursive: true })
     })
 
     resolve()
