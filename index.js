@@ -33,12 +33,11 @@ import path from 'path'
 import xml2js from 'xml2js'
 import archiver from 'archiver'
 import calver from 'calver'
-import util from 'util'
 
 const archive_directory = 'plugin_archive'
-const build_directory = build_directory
+const build_directory = 'dist'
 const src_directory = 'src'
-const psFolders = ['user_schema_root','queries_root']
+const psFolders = ['user_schema_root', 'queries_root']
 
 const format = 'yy.mm.dd.patch' // CalVer filename format
 const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json']
@@ -48,7 +47,7 @@ let zipFileName
 // Create build directory and archive directory
 if (!fs.existsSync(archive_directory))
   fs.mkdirSync(archive_directory)
-  
+
 if (!fs.existsSync(build_directory))
   fs.mkdirSync(build_directory)
 
@@ -89,17 +88,20 @@ const removeJunk = async (dir) => {
 }
 
 const mergePSfolders = async (dir) => {
-  return new Promise( (resolve, reject) => {
+  // Clean existing PS folders from dist and copy fresh from src
 
+  return new Promise((resolve, reject) => {
     psFolders.forEach((folder) => {
-      console.log(folder)
+      if (fs.existsSync(`${dir}/${folder}`)) {
+        fs.unlink(`${dir}/${folder}`, (err) => {
+          if (err)
+            reject(err)
+          else
+            console.log(`Removed ${dir}/${folder}`)
+        })
+      }
+      fs.cpSync(`${src_directory}/${folder}`, `${dir}/${folder}`, {recursive: true})
     })
-    // fs.unlink(`${dir}/user_schema_root`, (err) => {
-    //   if ( err )
-    //     reject(err)
-    //   else
-    //     console.log( `Removed ${dir}/user_schema_root`)
-    // })
   })
 }
 
@@ -145,7 +147,8 @@ const main = async () => {
     let newVersion
     try {
       newVersion = calver.inc(format, packageJson.version, 'calendar.patch')
-    } catch (error) {
+    }
+    catch (error) {
       newVersion = calver.inc(format, '', 'calendar.patch')
     }
 
@@ -158,7 +161,6 @@ const main = async () => {
     const xmlOutput = builder.buildObject(psXML)
     fs.writeFileSync('plugin.xml', xmlOutput)
 
-
     fs.writeFileSync(`${build_directory}/plugin.xml`, xmlOutput)
 
     await mergePSfolders(build_directory)
@@ -170,7 +172,7 @@ const main = async () => {
         console.error(err)
 
       else
-        console.log(`Deleted /index.html`)
+        console.log('Deleted /index.html')
     })
 
     // Create a zip file containing the contents of build_directory and all subdirectories
@@ -211,7 +213,6 @@ const main = async () => {
         }
       })
     })
-
   }
   catch (error) {
     console.error(error)
