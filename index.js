@@ -93,9 +93,8 @@ const mergePSfolders = async (dir) => {
   return new Promise((resolve, reject) => {
     psFolders.forEach((folder) => {
       if (fs.existsSync(`${dir}/${folder}`) && folder !== 'WEB_ROOT') {
-        console.log(folder)
         // Clear out everything except WEB_ROOT
-        fs.rm(`${dir}/${folder}`, {recursive: true }, (err) => {
+        fs.rm(`${dir}/${folder}`, { recursive: true }, (err) => {
           if (err)
             reject(err)
           else
@@ -128,6 +127,37 @@ const updatePackageJson = (v) => {
     // Handle any errors that may have occurred
     console.error(error)
   }
+}
+
+const pruneArchive = async () => {
+  // Prune ./plugin_archive and keep four most recent files
+  return new Promise((resolve) => {
+    fs.readdir(archive_directory, (err, files) => {
+      if (err) {
+        console.error(`Error reading directory: ${err}`)
+        return
+      }
+
+      files.sort((a, b) => {
+        const aTime = fs.statSync(path.join(archive_directory, a)).mtimeMs
+        const bTime = fs.statSync(path.join(archive_directory, b)).mtimeMs
+        return bTime - aTime
+      })
+
+      const recentFiles = files.slice(0, 3)
+
+      files.forEach((file) => {
+        if (!recentFiles.includes(file)) {
+          fs.unlink(path.join(archive_directory, file), (err) => {
+            if (err)
+              console.error(`Error deleting "${file}": ${err}`)
+          })
+        }
+      })
+    })
+
+    resolve()
+  })
 }
 
 const main = async () => {
@@ -198,29 +228,7 @@ const main = async () => {
     archive.directory(`${build_directory}/`, false)
     archive.finalize()
 
-    // Prune ./plugin_archive and keep three most recent files
-    fs.readdir(archive_directory, (err, files) => {
-      if (err) {
-        console.error(`Error reading directory: ${err}`)
-        return
-      }
-
-      files.sort((a, b) => {
-        const aTime = fs.statSync(path.join(archive_directory, a)).mtimeMs
-        const bTime = fs.statSync(path.join(archive_directory, b)).mtimeMs
-        return bTime - aTime
-      })
-
-      const recentFiles = files.slice(0, 3)
-
-      files.forEach((file) => {
-        if (!recentFiles.includes(file)) {
-          fs.unlink(path.join(archive_directory, file), (err) => {
-            logErr(`Error deleting "${file}": ${err}`)
-          })
-        }
-      })
-    })
+    await pruneArchive()
   }
   catch (error) {
     console.error(error)
