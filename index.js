@@ -1,6 +1,6 @@
 // This script parses an xml file 'ps-plugin.xml', converts it to an object,
 // writes the object back to the xml file, and then creates a zip file
-// containing the contents of the 'dist' directory.
+// containing the contents of the build_directory directory.
 //
 // Author: OpenAI & Benjamin Kemp
 // Date: 2022-12-16
@@ -35,11 +35,22 @@ import archiver from 'archiver'
 import calver from 'calver'
 import util from 'util'
 
-const format = 'yy.mm.dd.patch' // CalVer filename format
 const archive_directory = 'plugin_archive'
+const build_directory = build_directory
+const src_directory = 'src'
+const psFolders = ['user_schema_root','queries_root']
+
+const format = 'yy.mm.dd.patch' // CalVer filename format
 const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json']
 let errCount = 0
 let zipFileName
+
+// Create build directory and archive directory
+if (!fs.existsSync(archive_directory))
+  fs.mkdirSync(archive_directory)
+  
+if (!fs.existsSync(build_directory))
+  fs.mkdirSync(build_directory)
 
 const removeJunk = async (dir) => {
   return new Promise((resolve, reject) => {
@@ -74,6 +85,21 @@ const removeJunk = async (dir) => {
 
       resolve()
     })
+  })
+}
+
+const mergePSfolders = async (dir) => {
+  return new Promise( (resolve, reject) => {
+
+    psFolders.forEach((folder) => {
+      console.log(folder)
+    })
+    // fs.unlink(`${dir}/user_schema_root`, (err) => {
+    //   if ( err )
+    //     reject(err)
+    //   else
+    //     console.log( `Removed ${dir}/user_schema_root`)
+    // })
   })
 }
 
@@ -131,13 +157,15 @@ const main = async () => {
     const builder = new xml2js.Builder()
     const xmlOutput = builder.buildObject(psXML)
     fs.writeFileSync('plugin.xml', xmlOutput)
-    fs.writeFileSync('dist/plugin.xml', xmlOutput)
 
-    // Remove junk files
-    await removeJunk('dist')
+
+    fs.writeFileSync(`${build_directory}/plugin.xml`, xmlOutput)
+
+    await mergePSfolders(build_directory)
+    await removeJunk(build_directory)
 
     // Remove root index.html
-    fs.unlink('dist/WEB_ROOT/index.html', (err) => {
+    fs.unlink(`${build_directory}/WEB_ROOT/index.html`, (err) => {
       if (err)
         console.error(err)
 
@@ -145,8 +173,8 @@ const main = async () => {
         console.log(`Deleted /index.html`)
     })
 
-    // Create a zip file containing the contents of 'dist' and all subdirectories
-    const output = fs.createWriteStream(`plugin_archive/${zipFileName}`)
+    // Create a zip file containing the contents of build_directory and all subdirectories
+    const output = fs.createWriteStream(`${archive_directory}/${zipFileName}`)
     const archive = archiver('zip', { zlib: { level: 9 } })
 
     output.on('close', () => {
@@ -157,7 +185,7 @@ const main = async () => {
     })
 
     archive.pipe(output)
-    archive.directory('dist/', false)
+    archive.directory(`${build_directory}/`, false)
     archive.finalize()
 
     // Prune ./plugin_archive and keep three most recent files
@@ -183,6 +211,7 @@ const main = async () => {
         }
       })
     })
+
   }
   catch (error) {
     console.error(error)
