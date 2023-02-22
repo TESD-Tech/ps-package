@@ -159,6 +159,7 @@ const main = async () => {
     updatePackageJson(newVersion)
 
     zipFileName = `${psXML.plugin.$.name.replaceAll(' ', '_')}-${newVersion}.zip`
+    zipFileName = zipFileName.replace('_-_', '-')
 
     const builder = new xml2js.Builder()
     const xmlOutput = builder.buildObject(psXML)
