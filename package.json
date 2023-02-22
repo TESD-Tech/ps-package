@@ -1,17 +1,16 @@
 {
-  "name": "@TESD-Tech/ps-package",
-  "version": "23.2.22.2",
+  "name": "@tesd-tech/ps-package",
+  "version": "23.2.2-2.2",
   "type": "module",
   "description": "Create and manage PowerSchool plugin archives",
   "bin": {
-    "ps-package": "./index.js"
+    "ps-package": "index.js"
   },
   "main": "index.js",
   "scripts": {
     "build": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "release": "standard-version && git push --follow-tags && npm publish"
-
   },
   "repository": {
     "type": "git",

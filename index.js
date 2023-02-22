@@ -100,7 +100,8 @@ const mergePSfolders = async (dir) => {
             console.log(`Removed ${dir}/${folder}`)
         })
       }
-      fs.cpSync(`${src_directory}/${folder}`, `${dir}/${folder}`, {recursive: true})
+      if (fs.existsSync(`${src_directory}/${folder}`))
+        fs.cpSync(`${src_directory}/${folder}`, `${dir}/${folder}`, {recursive: true})
     })
   })
 }
