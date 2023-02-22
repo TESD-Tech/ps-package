@@ -1,4 +1,5 @@
 .npmrc
+plugin_archive
 
 # Logs
 logs

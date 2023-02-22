@@ -103,6 +103,8 @@ const mergePSfolders = async (dir) => {
       if (fs.existsSync(`${src_directory}/${folder}`))
         fs.cpSync(`${src_directory}/${folder}`, `${dir}/${folder}`, {recursive: true})
     })
+
+    resolve()
   })
 }
 
@@ -168,13 +170,15 @@ const main = async () => {
     await removeJunk(build_directory)
 
     // Remove root index.html
-    fs.unlink(`${build_directory}/WEB_ROOT/index.html`, (err) => {
-      if (err)
-        console.error(err)
+    if (fs.existsSync(`${build_directory}/WEB_ROOT/index.html`)) {
+      fs.unlink(`${build_directory}/WEB_ROOT/index.html`, (err) => {
+        if (err)
+          console.error(err)
 
-      else
-        console.log('Deleted /index.html')
-    })
+        else
+          console.log('Deleted /index.html')
+      })
+    }
 
     // Create a zip file containing the contents of build_directory and all subdirectories
     const output = fs.createWriteStream(`${archive_directory}/${zipFileName}`)
