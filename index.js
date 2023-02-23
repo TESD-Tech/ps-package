@@ -28,8 +28,8 @@
 
 */
 
-import fs from 'fs'
 import path from 'path'
+import fs from 'fs'
 import xml2js from 'xml2js'
 import archiver from 'archiver'
 import calver from 'calver'
@@ -88,25 +88,25 @@ const removeJunk = async (dir) => {
 }
 
 const mergePSfolders = async (dir) => {
-  // Clean existing PS folders from dist and copy fresh from src
-
-  return new Promise((resolve, reject) => {
-    psFolders.forEach((folder) => {
-      if (fs.existsSync(`${dir}/${folder}`) && folder !== 'WEB_ROOT') {
-        // Clear out everything except WEB_ROOT
+  for (const folder of psFolders) {
+    if (fs.existsSync(`${dir}/${folder}`) && folder !== 'WEB_ROOT') {
+      // Clear out everything except WEB_ROOT
+      await new Promise((resolve, reject) => {
         fs.rm(`${dir}/${folder}`, { recursive: true }, (err) => {
-          if (err)
+          if (err) {
+            console.error(err)
             reject(err)
-          else
+          }
+          else {
             console.log(`Removed ${dir}/${folder}`)
+            resolve()
+          }
         })
-      }
-      if (fs.existsSync(`${src_directory}/powerschool/${folder}`))
-        fs.cpSync(`${src_directory}/powerschool/${folder}`, `${dir}/${folder}`, { recursive: true })
-    })
-
-    resolve()
-  })
+      })
+    }
+    if (fs.existsSync(`${src_directory}/powerschool/${folder}`))
+      await fs.cpSync(`${src_directory}/powerschool/${folder}`, `${dir}/${folder}`, {recursive: true})
+  }
 }
 
 const updatePackageJson = (v) => {
@@ -226,7 +226,7 @@ const main = async () => {
 
     archive.pipe(output)
     archive.directory(`${build_directory}/`, false)
-    archive.finalize()
+    await archive.finalize()
 
     await pruneArchive()
   }
