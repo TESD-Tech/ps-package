@@ -36,6 +36,7 @@ import calver from 'calver'
 
 const archive_directory = 'plugin_archive'
 const build_directory = 'dist'
+const schema_directory = 'schema'
 const src_directory = 'src'
 const psFolders = ['user_schema_root', 'queries_root', 'WEB_ROOT']
 
@@ -43,13 +44,13 @@ const format = 'yy.mm.dd.patch' // CalVer filename format
 const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json']
 let errCount = 0
 let zipFileName
+let schemaZipFileName
 
-// Create build directory and archive directory
-if (!fs.existsSync(archive_directory))
-  fs.mkdirSync(archive_directory)
-
-if (!fs.existsSync(build_directory))
-  fs.mkdirSync(build_directory)
+// Create destination directories
+for (const dir of [archive_directory, build_directory, schema_directory]) {
+  if (!fs.existsSync(dir))
+    fs.mkdirSync(dir)
+}
 
 const removeJunk = async (dir) => {
   return new Promise((resolve, reject) => {
@@ -89,23 +90,54 @@ const removeJunk = async (dir) => {
 
 const mergePSfolders = async (dir) => {
   for (const folder of psFolders) {
-    if (fs.existsSync(`${dir}/${folder}`) && folder !== 'WEB_ROOT') {
+    let this_dir = dir
+    if (folder === 'user_schema_root')
+      this_dir = schema_directory
+
+    if (fs.existsSync(`${this_dir}/${folder}`) && folder !== 'WEB_ROOT') {
       // Clear out everything except WEB_ROOT
       await new Promise((resolve, reject) => {
-        fs.rm(`${dir}/${folder}`, { recursive: true }, (err) => {
+        fs.rm(`${this_dir}/${folder}`, { recursive: true }, (err) => {
           if (err) {
             console.error(err)
             reject(err)
           }
           else {
-            console.log(`Removed ${dir}/${folder}`)
             resolve()
           }
         })
       })
     }
-    if (fs.existsSync(`${src_directory}/powerschool/${folder}`))
-      await fs.cpSync(`${src_directory}/powerschool/${folder}`, `${dir}/${folder}`, {recursive: true})
+    if (fs.existsSync(`${src_directory}/powerschool/${folder}`)) {
+      await fs.cpSync(`${src_directory}/powerschool/${folder}`, `${this_dir}/${folder}`, { recursive: true })
+      console.log(`Merging ${src_directory}/powerschool/${folder} into ${this_dir}/${folder}`)
+    }
+  }
+}
+
+const createPlugins = async (folders) => {
+  for (const folder of folders) {
+    let thisZip = zipFileName
+
+    if (folder === schema_directory)
+      thisZip = schemaZipFileName
+
+    if (fs.existsSync(`${folder}`)) {
+      await new Promise((resolve, reject) => {
+        // Create a zip file containing the contents of build_directory and all subdirectories
+        const output = fs.createWriteStream(`${archive_directory}/${thisZip}`)
+        const archive = archiver('zip', { zlib: { level: 9 } })
+
+        output.on('close', () => {
+          console.log(`${thisZip} created. Size: ${archive.pointer()} Bytes`)
+        })
+
+        archive.pipe(output)
+        archive.directory(`${build_directory}/`, false)
+        archive.finalize()
+        resolve()
+      })
+    }
   }
 }
 
@@ -190,8 +222,13 @@ const main = async () => {
     psXML.plugin.$.version = newVersion
     updatePackageJson(newVersion)
 
+    // Prep dist and dist-data for plugin creation
+    await mergePSfolders(build_directory)
+    await removeJunk(build_directory)
+
     zipFileName = `${psXML.plugin.$.name.replaceAll(' ', '_')}-${newVersion}.zip`
     zipFileName = zipFileName.replace('_-_', '-')
+    schemaZipFileName = `DATA-${zipFileName}`
 
     const builder = new xml2js.Builder()
     const xmlOutput = builder.buildObject(psXML)
@@ -199,8 +236,13 @@ const main = async () => {
 
     fs.writeFileSync(`${build_directory}/plugin.xml`, xmlOutput)
 
-    await mergePSfolders(build_directory)
-    await removeJunk(build_directory)
+    if (fs.existsSync(`${schema_directory}`)) {
+      // Create separate plugin.xml for data files
+      // Helps with high import lag in PS when user_schema_root is present
+      psXML.plugin.$.name += ' DATA'
+      const xmlOutput_DATA = builder.buildObject(psXML)
+      fs.writeFileSync(`${schema_directory}/plugin.xml`, xmlOutput_DATA)
+    }
 
     // Remove root index.html
     if (fs.existsSync(`${build_directory}/WEB_ROOT/index.html`)) {
@@ -213,20 +255,7 @@ const main = async () => {
       })
     }
 
-    // Create a zip file containing the contents of build_directory and all subdirectories
-    const output = fs.createWriteStream(`${archive_directory}/${zipFileName}`)
-    const archive = archiver('zip', { zlib: { level: 9 } })
-
-    output.on('close', () => {
-      let errMsg = 'No errors encountered.'
-      if (errCount > 0)
-        errMsg = `${errCount} errors encountered.`
-      console.dir(`PS Plugin created. ${errMsg} Size: ${archive.pointer()} Bytes`)
-    })
-
-    archive.pipe(output)
-    archive.directory(`${build_directory}/`, false)
-    await archive.finalize()
+    await createPlugins([build_directory, schema_directory])
 
     await pruneArchive()
   }
