@@ -133,7 +133,7 @@ const createPlugins = async (folders) => {
         })
 
         archive.pipe(output)
-        archive.directory(`${build_directory}/`, false)
+        archive.directory(`${folder}/`, false)
         archive.finalize()
         resolve()
       })
