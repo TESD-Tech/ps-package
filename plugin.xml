@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<plugin name="TE Tech - PS Package" xmlns="http://plugin.powerschool.pearson.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" description="Create and manage PowerSchool plugin archives" version="23.2.24.23" xsi:schemaLocation="http://plugin.powerschool.pearson.com plugin.xsd">
+<plugin name="TE Tech - PS Package" xmlns="http://plugin.powerschool.pearson.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" description="Create and manage PowerSchool plugin archives" version="23.3.1.1" xsi:schemaLocation="http://plugin.powerschool.pearson.com plugin.xsd">
   <publisher name="Benjamin Kemp">
     <contact email="kempb@tesd.net"/>
   </publisher>
@@ -8,5 +8,12 @@
       <cdn name="https://*.google.com"/>
       <cdn name="https://*.firebaseapp.com/"/>
     </cdn_request>
+    <field table="STUDENTS" field="DCID" access="ViewOnly"/>
+    <field table="STUDENTS" field="id" access="ViewOnly"/>
+    <field table="STUDENTS" field="home_room" access="ViewOnly"/>
+    <field table="STUDENTS" field="student_number" access="ViewOnly"/>
+    <field table="STUDENTS" field="grade_level" access="ViewOnly"/>
+    <field table="STUDENTS" field="dob" access="ViewOnly"/>
+    <field table="u_te_tech_sports_student" field="sport" access="FullAccess"/>
   </access_request>
 </plugin>

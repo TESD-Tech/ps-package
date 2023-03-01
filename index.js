@@ -42,7 +42,6 @@ const psFolders = ['permissions_root', 'user_schema_root', 'queries_root', 'WEB_
 
 const format = 'yy.mm.dd.patch' // CalVer filename format
 const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json']
-let errCount = 0
 let zipFileName
 let schemaZipFileName
 
@@ -240,6 +239,7 @@ const main = async () => {
       // Create separate plugin.xml for data files
       // Helps with high import lag in PS when user_schema_root is present
       psXML.plugin.$.name += ' DATA'
+      delete psXML.plugin.access_request
       const xmlOutput_DATA = builder.buildObject(psXML)
       fs.writeFileSync(`${schema_directory}/plugin.xml`, xmlOutput_DATA)
     }
