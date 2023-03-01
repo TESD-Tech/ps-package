@@ -40,7 +40,7 @@ const schema_directory = 'schema'
 const src_directory = 'src'
 const psFolders = ['permissions_root', 'user_schema_root', 'queries_root', 'WEB_ROOT']
 
-const format = 'yy.mm.dd.patch' // CalVer filename format
+const format = 'yy.mm.patch' // CalVer filename format
 const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json']
 let zipFileName
 let schemaZipFileName
