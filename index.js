@@ -55,7 +55,7 @@ const removeJunk = async (dir) => {
   return new Promise((resolve, reject) => {
     fs.readdir(dir, (err, files) => {
       if (err) {
-        reject(err)
+        console.log(err)
         return
       }
       files.forEach((file) => {
@@ -63,7 +63,7 @@ const removeJunk = async (dir) => {
 
         fs.stat(fullPath, (err, stat) => {
           if (err) {
-            reject(err)
+            console.log(err)
             return
           }
 
@@ -73,7 +73,7 @@ const removeJunk = async (dir) => {
           else if (junkFiles.includes(file)) {
             fs.unlink(fullPath, (err) => {
               if (err)
-                reject(err)
+                console.log(err)
 
               else
                 console.log(`Deleted junk file: ${fullPath}`)
