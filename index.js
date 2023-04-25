@@ -28,8 +28,8 @@
 
 */
 
-import path from 'path'
-import fs from 'fs'
+import path from 'node:path'
+import fs from 'node:fs'
 import xml2js from 'xml2js'
 import archiver from 'archiver'
 import calver from 'calver'
@@ -51,19 +51,22 @@ for (const dir of [archive_directory, build_directory, schema_directory]) {
     fs.mkdirSync(dir)
 }
 
-const removeJunk = async (dir) => {
-  return new Promise((resolve, reject) => {
+const removeJunk = (dir) => {
+  try {
+    fs.accessSync(dir)
+
     fs.readdir(dir, (err, files) => {
       if (err) {
-        reject(err)
+        console.error(err)
         return
       }
+
       files.forEach((file) => {
         const fullPath = path.join(dir, file)
 
         fs.stat(fullPath, (err, stat) => {
           if (err) {
-            reject(err)
+            console.error(err)
             return
           }
 
@@ -71,20 +74,16 @@ const removeJunk = async (dir) => {
             removeJunk(fullPath)
           }
           else if (junkFiles.includes(file)) {
-            fs.unlink(fullPath, (err) => {
-              if (err)
-                reject(err)
-
-              else
-                console.log(`Deleted junk file: ${fullPath}`)
-            })
+            fs.unlinkSync(fullPath)
+            console.log(`Deleted junk file: ${fullPath}`)
           }
         })
       })
-
-      resolve()
     })
-  })
+  }
+  catch (error) {
+    console.error(error)
+  }
 }
 
 const mergePSfolders = async (dir) => {
