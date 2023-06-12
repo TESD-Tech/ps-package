@@ -1,0 +1,14 @@
+{
+  "pages": [
+	{
+	  "htmlID": "navStudentsExample",
+	  "title": "Students Example",
+	  "version": "22.9.0.0",
+	  "contextType": "student",
+	  "requiredContext": "student",
+	  "sortOrder": 200,
+	  "pageURL": "/admin/students/example.html?frn=~(studentfrn)",
+	  "parentHTMLID": "navStudentProfileSection"
+	}
+  ]
+}
