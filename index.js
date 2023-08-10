@@ -26,6 +26,9 @@
     3. include a header in a comment block including author and date
     4. include a comment block containing this prompt
 
+
+  --source <source>  The code source directory. Defaults to 'dist' (Vite)
+
 */
 
 import path from 'path'
@@ -33,9 +36,13 @@ import fs from 'fs'
 import xml2js from 'xml2js'
 import archiver from 'archiver'
 import calver from 'calver'
+import minimist from 'minimist'
+
+const argv = minimist(process.argv.slice(2))
+const source = argv.source || 'dist'
 
 const archive_directory = 'plugin_archive'
-const build_directory = 'dist'
+const build_directory = source
 const schema_directory = 'schema'
 const src_directory = 'src'
 const psFolders = ['permissions_root', 'user_schema_root', 'queries_root', 'WEB_ROOT', 'pagecataloging']
