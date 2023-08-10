@@ -160,11 +160,12 @@ async function createZipFiles(psXML, newVersion) {
   await createPluginZip(schemaDirectory, schemaZipFileName)
 }
 
-async function copySvelteBuildContents(zipFileName) {
-  console.log(type, fs.existsSync('public'))
+async function copySvelteBuildContents() {
+  const folderName = `${psXML.plugin.$.name}`.replaceAll(' ', '_').replaceAll('_-_', '_').replace('__', '_')
+
   if (type === 'svelte' && fs.existsSync('public')) {
-    const targetDir = `./dist/WEB_ROOT/${zipFileName}`
-    await ncp('./public/build/', targetDir)
+    const targetDir = `dist/WEB_ROOT/${folderName}`
+    await fs.promises.cp(`public/build`, targetDir, { recursive: true })
     console.log(`Copied Svelte build contents to ${targetDir}`)
   }
 }
@@ -177,7 +178,7 @@ async function main() {
 
     await updatePackageVersion(newVersion)
     await prepareBuildDirectory()
-    await copySvelteBuildContents(`${psXML.plugin.$.name}`.replaceAll(' ', '_').replaceAll('_-_', '_').replace('__', '_')) // Pass the plugin name
+    await copySvelteBuildContents()
     await createZipFiles(psXML, newVersion)
     await pruneArchive()
   } catch (error) {
