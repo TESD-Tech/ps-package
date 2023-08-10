@@ -4,6 +4,7 @@ import xml2js from 'xml2js'
 import archiver from 'archiver'
 import calver from 'calver'
 import minimist from 'minimist'
+import ncp from 'ncp'
 
 const argv = minimist(process.argv.slice(2))
 const source = argv.source || 'src'
@@ -15,9 +16,10 @@ const schemaDirectory = 'schema'
 const srcDirectory = source
 const psFolders = ['permissions_root', 'user_schema_root', 'queries_root', 'WEB_ROOT', 'pagecataloging']
 
+const psXML = await parseXml()
 const format = 'yy.mm.patch' // CalVer filename format
 const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json']
-let zipFileName
+let zipFileName = `${psXML.plugin.$.name}-${psXML.plugin.$.version}.zip`
 let schemaZipFileName
 
 async function removeJunk(dir) {
@@ -151,16 +153,17 @@ async function prepareBuildDirectory() {
 }
 
 async function createZipFiles(psXML, newVersion) {
-  zipFileName = `${psXML.plugin.$.name.replaceAll(' ', '_')}-${newVersion}.zip`.replace('_-_', '-')
+  zipFileName = `${psXML.plugin.$.name}-${newVersion}.zip`
   schemaZipFileName = `DATA-${zipFileName}`
 
   await createPluginZip(buildDirectory, zipFileName)
   await createPluginZip(schemaDirectory, schemaZipFileName)
 }
 
-async function copySvelteBuildContents(pluginName) {
-  if (type === 'svelte' && fs.existsSync('./public/build/')) {
-    const targetDir = `./dist/WEB_ROOT/${pluginName}`
+async function copySvelteBuildContents(zipFileName) {
+  console.log(type, fs.existsSync('public'))
+  if (type === 'svelte' && fs.existsSync('public')) {
+    const targetDir = `./dist/WEB_ROOT/${zipFileName}`
     await ncp('./public/build/', targetDir)
     console.log(`Copied Svelte build contents to ${targetDir}`)
   }
@@ -168,14 +171,13 @@ async function copySvelteBuildContents(pluginName) {
 
 async function main() {
   try {
-    const psXML = await parseXml()
     const packageJsonString = await fs.promises.readFile('package.json', 'utf8')
     const packageJson = JSON.parse(packageJsonString)
     const newVersion = await calver.inc(format, packageJson.version, 'calendar.patch')
 
     await updatePackageVersion(newVersion)
     await prepareBuildDirectory()
-    await copySvelteBuildContents(psXML.plugin.$.name) // Pass the plugin name
+    await copySvelteBuildContents(`${psXML.plugin.$.name}`.replaceAll(' ', '_').replaceAll('_-_', '_').replace('__', '_')) // Pass the plugin name
     await createZipFiles(psXML, newVersion)
     await pruneArchive()
   } catch (error) {
