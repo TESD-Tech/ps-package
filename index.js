@@ -4,7 +4,6 @@ import xml2js from 'xml2js'
 import archiver from 'archiver'
 import calver from 'calver'
 import minimist from 'minimist'
-import ncp from 'ncp'
 
 const argv = minimist(process.argv.slice(2))
 const source = argv.source || 'src'
