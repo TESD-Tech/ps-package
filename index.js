@@ -58,7 +58,7 @@ async function createPluginZip(folder, zipFileName) {
       const archive = archiver('zip', { zlib: { level: 9 } })
 
       output.on('close', () => {
-        console.log(`${zipFileName} created. Size: ${archive.pointer()} Bytes`)
+        console.log(`${folder}/${zipFileName} created. Size: ${archive.pointer()} Bytes`)
         resolve()
       })
 
@@ -75,7 +75,8 @@ async function updatePackageVersion(v) {
     const packageJson = JSON.parse(packageJsonString)
     packageJson.version = v
     await fs.promises.writeFile('package.json', JSON.stringify(packageJson, null, 2))
-  } catch (error) {
+  }
+  catch (error) {
     console.error(error)
   }
 }
@@ -110,6 +111,7 @@ async function parseXml() {
 }
 
 async function writeXml(psXML) {
+  console.log(`Build Directory: ${buildDirectory}`)
   const builder = new xml2js.Builder()
   const xmlOutput = builder.buildObject(psXML)
 
@@ -176,6 +178,7 @@ async function main() {
     const newVersion = await calver.inc(format, packageJson.version, 'calendar.patch')
 
     await updatePackageVersion(newVersion)
+    await updateVersion()
     await prepareBuildDirectory()
     await copySvelteBuildContents()
     await createZipFiles(psXML, newVersion)
