@@ -75,6 +75,10 @@ async function updatePackageVersion(v) {
     const packageJson = JSON.parse(packageJsonString)
     packageJson.version = v
     await fs.promises.writeFile('package.json', JSON.stringify(packageJson, null, 2))
+
+    const psXML = await parseXml()
+    psXML.plugin.$.version = v
+    await writeXml(psXML)
   }
   catch (error) {
     console.error(error)
@@ -126,23 +130,6 @@ async function writeXml(psXML) {
   }
 }
 
-async function updateVersion() {
-  const packageJsonString = await fs.promises.readFile('package.json', 'utf8')
-  const packageJson = JSON.parse(packageJsonString)
-
-  let newVersion
-  try {
-    newVersion = calver.inc(format, packageJson.version, 'calendar.patch')
-  } catch (error) {
-    newVersion = calver.inc(format, '', 'calendar.patch')
-  }
-
-  const psXML = await parseXml()
-  psXML.plugin.$.version = newVersion
-  await updatePackageVersion(newVersion)
-  await writeXml(psXML)
-}
-
 async function prepareBuildDirectory() {
   await mergePSfolders(buildDirectory)
   await removeJunk(buildDirectory)
@@ -171,14 +158,24 @@ async function copySvelteBuildContents() {
   }
 }
 
+async function checkFolderStructure() {
+  // Create dist folder if it doesn't exist
+  if (!fs.existsSync('dist'))
+    await fs.promises.mkdir('dist')
+
+  // Create archive folder if it doesn't exist
+  if (!fs.existsSync(archiveDirectory))
+    await fs.promises.mkdir(archiveDirectory)
+}
+
 async function main() {
   try {
     const packageJsonString = await fs.promises.readFile('package.json', 'utf8')
     const packageJson = JSON.parse(packageJsonString)
     const newVersion = await calver.inc(format, packageJson.version, 'calendar.patch')
 
+    await checkFolderStructure()
     await updatePackageVersion(newVersion)
-    await updateVersion()
     await prepareBuildDirectory()
     await copySvelteBuildContents()
     await createZipFiles(psXML, newVersion)
