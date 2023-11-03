@@ -33,7 +33,7 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^0.42.0",
+    "@antfu/eslint-config": "^1.1.0",
     "eslint": "^8.46.0",
     "typescript": "^5.1.6"
   }
