@@ -172,7 +172,20 @@ async function main() {
   try {
     const packageJsonString = await fs.promises.readFile('package.json', 'utf8')
     const packageJson = JSON.parse(packageJsonString)
-    const newVersion = await calver.inc(format, packageJson.version, 'calendar.patch')
+    let newVersion;
+    try {
+        newVersion = await calver.inc(format, packageJson.version, 'calendar.patch');
+    } catch (error) {
+        console.error('Invalid version format: ', packageJson.version);
+        console.error('Falling back to current date as version...');
+
+        const date = new Date();
+        const year = date.getFullYear().toString().substr(-2); // get last two digits of year
+        const month = ('0' + (date.getMonth() + 1)).slice(-2); // get month and ensure it is 2 digits
+        const patch = '01'; // default patch version
+
+        newVersion = `${year}.${month}.${patch}`;
+    }
 
     await checkFolderStructure()
     await updatePackageVersion(newVersion)
