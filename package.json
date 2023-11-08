@@ -1,6 +1,6 @@
 {
   "name": "@tesd-tech/ps-package",
-  "version": "23.9.29",
+  "version": "23.11.0",
   "type": "module",
   "description": "Create and manage PowerSchool plugin archives",
   "bin": {
@@ -33,8 +33,8 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^0.42.0",
-    "eslint": "^8.46.0",
-    "typescript": "^5.1.6"
+    "@antfu/eslint-config": "^1.1.0",
+    "eslint": "^8.53.0",
+    "typescript": "^5.2.2"
   }
 }

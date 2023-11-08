@@ -40,9 +40,8 @@ async function mergePSfolders(targetDir) {
   for (const folder of psFolders) {
     const thisDir = folder === 'user_schema_root' ? schemaDirectory : targetDir
 
-    if (fs.existsSync(`${thisDir}/${folder}`) && folder !== 'WEB_ROOT') {
+    if (fs.existsSync(`${thisDir}/${folder}`) && folder !== 'WEB_ROOT')
       await fs.promises.rm(`${thisDir}/${folder}`, { recursive: true })
-    }
 
     if (fs.existsSync(`${srcDirectory}/powerschool/${folder}`)) {
       await fs.promises.cp(`${srcDirectory}/powerschool/${folder}`, `${thisDir}/${folder}`, { recursive: true })
@@ -104,7 +103,8 @@ async function pruneArchive() {
         }
       }
     }
-  } catch (error) {
+  }
+  catch (error) {
     console.error(`Error pruning archive: ${error}`);
   }
 }
