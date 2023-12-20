@@ -93,7 +93,7 @@ async function pruneArchive() {
       return bTime - aTime;
     });
 
-    const recentFiles = files.slice(0, 3);
+    const recentFiles = files.slice(0, 10);
     for (const file of files) {
       if (!recentFiles.includes(file)) {
         try {
