@@ -2,7 +2,7 @@
 
 This script automates the process of building and packaging a PowerSchool plugin. It handles tasks such as:
 
-* **Updating the plugin version number**
+* **Updating the plugin version number in plugin.xml, all pagecataloging JSON files, and package.json**
 * **Merging PowerSchool-specific folders into the build directory**
 * **Removing junk files from the build directory**
 * **Creating ZIP files for the plugin and its schema**
