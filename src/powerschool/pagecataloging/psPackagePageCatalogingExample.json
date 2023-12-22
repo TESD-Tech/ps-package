@@ -1,0 +1,14 @@
+{
+  "pages": [
+    {
+      "htmlID": "psPackagePageCatalogingExample",
+      "title": "Students Example",
+      "version": "23.12.2",
+      "contextType": "student",
+      "requiredContext": "student",
+      "sortOrder": 200,
+      "pageURL": "/admin/students/example.html?frn=~(studentfrn)",
+      "parentHTMLID": "navStudentProfileSection"
+    }
+  ]
+}

@@ -68,6 +68,36 @@ async function createPluginZip(folder, zipFileName) {
   }
 }
 
+async function updateJsonVersion(dir, v) {
+  const files = await fs.promises.readdir(dir);
+
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    const stat = await fs.promises.stat(fullPath);
+
+    if (stat.isDirectory()) {
+      await updateJsonVersion(fullPath, v);
+    } else if (path.extname(file) === '.json') {
+      const jsonString = await fs.promises.readFile(fullPath, 'utf8');
+      const jsonObj = JSON.parse(jsonString);
+
+      updateVersionInObject(jsonObj, v);
+
+      await fs.promises.writeFile(fullPath, JSON.stringify(jsonObj, null, 2));
+    }
+  }
+}
+
+function updateVersionInObject(obj, v) {
+  for (const key in obj) {
+    if (key === 'version') {
+      obj[key] = v;
+    } else if (typeof obj[key] === 'object') {
+      updateVersionInObject(obj[key], v);
+    }
+  }
+}
+
 async function updatePackageVersion(v) {
   try {
     const packageJsonString = await fs.promises.readFile('package.json', 'utf8')
@@ -78,6 +108,8 @@ async function updatePackageVersion(v) {
     const psXML = await parseXml()
     psXML.plugin.$.version = v
     await writeXml(psXML)
+    await updateJsonVersion(`${srcDirectory}/powerschool/pagecataloging/`, v);
+
   }
   catch (error) {
     console.error(error)
