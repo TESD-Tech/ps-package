@@ -69,6 +69,10 @@ async function createPluginZip(folder, zipFileName) {
 }
 
 async function updateJsonVersion(dir, v) {
+  if (!fs.existsSync(dir)) {
+    return;
+  }
+  
   const files = await fs.promises.readdir(dir);
 
   for (const file of files) {
