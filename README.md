@@ -1,6 +1,6 @@
 # ps-package
 
-This script automates the process of building and packaging a PowerSchool plugin. It handles tasks such as:
+This package automates the process of building and packaging a PowerSchool plugin. It handles tasks such as:
 
 * **Updating the plugin version number in plugin.xml, all pagecataloging JSON files, and package.json**
 * **Merging PowerSchool-specific folders into the build directory**
@@ -10,7 +10,7 @@ This script automates the process of building and packaging a PowerSchool plugin
 
 ## Installation
 
-To install the script, run the following command from the root directory of your plugin project:
+To install the package, run the following command from the root directory of your plugin project:
 
 ```bash
 pnpm i -D @tesd-tech/ps-package
@@ -23,26 +23,26 @@ npx ps-package
 
 ## Options
 
-The script accepts two optional command-line arguments:
+The package accepts two optional command-line arguments:
 
 * **`source`:** The source directory for the plugin files. This defaults to `src`.
 * **`type`:** The plugin type. This can be `vue` or `svelte`. This defaults to `vue`.
 
 ## Additional Notes
 
-* The script expects the plugin's source files to be located in a directory named `src` in the project's root directory.
+* The package expects the plugin's source files to be located in a directory named `src` in the project's root directory.
 * Additionally, PowerSchool-specific files and directories should be located in a subdirectory named "powerschool" within the `src` directory.
   * See the src directory within this project for an example of this structure.
-* The script expects the plugin's XML manifest file to be named `plugin.xml` and located in the project's root directory.
-* The script creates the following directories:
+* The package expects the plugin's XML manifest file to be named `plugin.xml` and located in the project's root directory.
+* The package creates the following directories:
   * `dist`: The directory where the plugin's built files are placed.
   * `plugin_archive`: The directory where ZIP files of the plugin and its schema are created.
-* The script will overwrite any existing files in the `dist` and `plugin_archive` directories.
+* The package will overwrite any existing files in the `dist` and `plugin_archive` directories.
 
 ## Credits
 
-This script was developed by Benjamin Kemp and is based on the work of others who have contributed to the open-source community.
+This package was developed by Benjamin Kemp and is based on the work of others who have contributed to the open-source community.
 
 ## License
 
-This script is available under the MIT License.
+This package is available under the MIT License.
