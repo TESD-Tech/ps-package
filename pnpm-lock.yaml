@@ -9,8 +9,8 @@ dependencies:
     specifier: ^7.0.1
     version: 7.0.1
   calver:
-    specifier: ^22.9.1
-    version: 22.9.1
+    specifier: ^24.0.2
+    version: 24.0.2
   fs-extra:
     specifier: ^11.2.0
     version: 11.2.0
@@ -168,21 +168,6 @@ packages:
     dependencies:
       '@babel/types': 7.23.6
     dev: true
-
-  /@babel/runtime-corejs3@7.21.0:
-    resolution: {integrity: sha512-TDD4UJzos3JJtM+tHX+w2Uc+KWj7GV+VKKFdMVd2Rx8sdA19hcc3P3AHFYd5LVOw+pYuSd5lICC3gm52B6Rwxw==}
-    engines: {node: '>=6.9.0'}
-    dependencies:
-      core-js-pure: 3.30.1
-      regenerator-runtime: 0.13.11
-    dev: false
-
-  /@babel/runtime@7.21.0:
-    resolution: {integrity: sha512-xwII0//EObnq89Ji5AKYQaRYiW/nZ3llSv29d49IuxPhKbtJoLP+9QUUZ4nVragQVtaVGeZrpB+ZtG/Pdy/POw==}
-    engines: {node: '>=6.9.0'}
-    dependencies:
-      regenerator-runtime: 0.13.11
-    dev: false
 
   /@babel/types@7.23.6:
     resolution: {integrity: sha512-+uarb83brBzPKN38NX1MkB6vb6+mwvR6amUulqAE7ccQw1pEl+bCia9TbdG1lsnFP7lZySvUn37CHyXQdfTwzg==}
@@ -812,11 +797,11 @@ packages:
     engines: {node: '>=6'}
     dev: true
 
-  /calver@22.9.1:
-    resolution: {integrity: sha512-YKu5CoQtB/oqvmbCaX3UjKsZwM4zV3W5AJ8/1UTYmVtIS5r6kBA4fJxXLFnW3PsTpQYuYrtkC7kqIlL94eQKWQ==}
+  /calver@24.0.2:
+    resolution: {integrity: sha512-XmvR3tGTmW2EJTdjSxcJz330o+f81zL5C2IB1y0cxxTh70rUrcZUDnVb7f/QNWjf0U8pyH+gihgFGGGdziMmqA==}
+    hasBin: true
     dependencies:
-      '@babel/runtime': 7.21.0
-      '@babel/runtime-corejs3': 7.21.0
+      commander: 12.1.0
     dev: false
 
   /caniuse-lite@1.0.30001571:
@@ -892,6 +877,11 @@ packages:
   /color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
 
+  /commander@12.1.0:
+    resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
+    engines: {node: '>=18'}
+    dev: false
+
   /comment-parser@1.4.1:
     resolution: {integrity: sha512-buhp5kePrmda3vhc5B9t7pUQXAb2Tnd0qgpkIhPhkHXxJpiPJ11H0ZEU0oBpJ2QztSbzG/ZxMj/CHsYJqRHmyg==}
     engines: {node: '>= 12.0.0'}
@@ -917,11 +907,6 @@ packages:
     dependencies:
       browserslist: 4.22.2
     dev: true
-
-  /core-js-pure@3.30.1:
-    resolution: {integrity: sha512-nXBEVpmUnNRhz83cHd9JRQC52cTMcuXAmR56+9dSMpRdpeA4I1PX6yjmhd71Eyc/wXNsdBdUDIj1QTIeZpU5Tg==}
-    requiresBuild: true
-    dev: false
 
   /core-util-is@1.0.3:
     resolution: {integrity: sha512-ZQBvi1DcpJ4GDqanjucZ2Hj3wEO5pZDS89BWbkcrvdxksJorwUDDZamX9ldFkp9aw2lmBDLgkObEA4DWNJ9FYQ==}
@@ -2338,10 +2323,6 @@ packages:
     resolution: {integrity: sha512-v05I2k7xN8zXvPD9N+z/uhXPaj0sUFCe2rcWZIpBsqxfP7xXFQ0tipAd/wjj1YxWyWtUS5IDJpOG82JKt2EAVA==}
     dependencies:
       minimatch: 5.1.6
-    dev: false
-
-  /regenerator-runtime@0.13.11:
-    resolution: {integrity: sha512-kY1AZVr2Ra+t+piVaJ4gxaFaReZVH40AKNo7UCX6W+dEwBo/2oZJzqfuN1qLq1oL45o56cPaTXELwrTh8Fpggg==}
     dev: false
 
   /regexp-tree@0.1.27:
