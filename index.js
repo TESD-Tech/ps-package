@@ -2,7 +2,6 @@ import path from 'node:path'
 import fs from 'node:fs'
 import xml2js from 'xml2js'
 import archiver from 'archiver'
-import calver from 'calver'
 import minimist from 'minimist'
 
 const argv = minimist(process.argv.slice(2))
@@ -209,6 +208,7 @@ async function main() {
     const packageJsonString = await fs.promises.readFile('package.json', 'utf8')
     const packageJson = JSON.parse(packageJsonString)
     let newVersion;
+    const calver = await import('calver');
     try {
         newVersion = await calver.inc(format, packageJson.version, 'calendar.patch');
     } catch (error) {
