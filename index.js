@@ -13,7 +13,7 @@ const archiveDirectory = 'plugin_archive'
 const buildDirectory = 'dist'
 const schemaDirectory = 'schema'
 const srcDirectory = source
-const psFolders = ['permissions_root', 'user_schema_root', 'queries_root', 'WEB_ROOT', 'pagecataloging']
+const psFolders = ['permissions_root', 'user_schema_root', 'queries_root', 'WEB_ROOT', 'pagecataloging', 'MessageKeys']
 
 const psXML = await parseXml()
 const format = 'yy.mm.patch' // CalVer filename format
