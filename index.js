@@ -200,9 +200,9 @@ async function writeXml(psXML) {
   }
 
   if (fs.existsSync(`${schemaDirectory}`)) {
-    if (psXML.plugin.$.name.length > 36) {
+    if (psXML.plugin.$.name.length > 35) {
       console.warn(`Plugin name truncated to fit 40 character limit: ${psXML.plugin.$.name}`);
-      psXML.plugin.$.name = psXML.plugin.$.name.substring(0, 36);
+      psXML.plugin.$.name = psXML.plugin.$.name.substring(0, 35);
     }
     psXML.plugin.$.name += ' DATA'
     delete psXML.plugin.access_request
