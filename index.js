@@ -1,24 +1,61 @@
-import path from 'node:path'
-import fs from 'node:fs'
-import xml2js from 'xml2js'
-import archiver from 'archiver'
-import minimist from 'minimist'
+import path from 'node:path';
+import fs from 'node:fs';
+import xml2js from 'xml2js';
+import archiver from 'archiver';
+import minimist from 'minimist';
 
-const argv = minimist(process.argv.slice(2))
-const source = argv.source || 'src'
-const type = argv.type || 'vue'
+const argv = minimist(process.argv.slice(2));
+const source = argv.source || 'src';
+const type = argv.type || 'vue';
 
-const archiveDirectory = 'plugin_archive'
-const buildDirectory = 'dist'
-const schemaDirectory = 'schema'
-const srcDirectory = source
-const psFolders = ['permissions_root', 'user_schema_root', 'queries_root', 'WEB_ROOT', 'pagecataloging', 'MessageKeys']
+const archiveDirectory = 'plugin_archive';
+const buildDirectory = 'dist';
+const schemaDirectory = 'schema';
+const srcDirectory = source;
+const psFolders = ['permissions_root', 'user_schema_root', 'queries_root', 'WEB_ROOT', 'pagecataloging', 'MessageKeys'];
 
-const psXML = await parseXml()
-const format = 'yy.mm.patch' // CalVer filename format
-const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json']
-let zipFileName = `${psXML.plugin.$.name}-${psXML.plugin.$.version}.zip`
-let schemaZipFileName
+const psXML = await parseXml();
+const format = 'yy.mm.patch'; // CalVer filename format
+const junkFiles = ['.DS_Store', 'Thumbs.db', 'robots.txt', 'sitemap.xml', 'ssr-manifest.json'];
+let zipFileName = `${psXML.plugin.$.name}-${psXML.plugin.$.version}.zip`;
+let schemaZipFileName;
+
+async function getNewVersion(currentVersion) {
+  try {
+    // Split the version into components
+    const [year, month, patch] = currentVersion.split('.').map(Number);
+    const currentYear = new Date().getFullYear();
+
+    // Increment patch or reset if new month/year
+    let newYear = year;
+    let newMonth = month;
+    let newPatch = patch + 1;
+
+    if (month !== new Date().getMonth() + 1) {
+      newMonth = new Date().getMonth() + 1;
+      newPatch = 1;
+    }
+
+    if (year !== currentYear % 100) {
+      newYear = currentYear % 100;
+      newMonth = new Date().getMonth() + 1;
+      newPatch = 1;
+    }
+
+    return `${newYear}.${String(newMonth).padStart(2, '0')}.${String(newPatch).padStart(2, '0')}`;
+  } catch (error) {
+    console.error('Error incrementing version:', error);
+    console.error('Invalid version format:', currentVersion);
+    console.error('Falling back to current date as version...');
+
+    const date = new Date();
+    const year = date.getFullYear().toString().substr(-2); // last two digits of year
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // ensure 2 digits
+    const patch = '01'; // default patch version
+
+    return `${year}.${month}.${patch}`;
+  }
+}
 
 async function removeJunk(dir) {
   const files = await fs.promises.readdir(dir)
@@ -105,6 +142,7 @@ async function updatePackageVersion(v) {
   try {
     const packageJsonString = await fs.promises.readFile('package.json', 'utf8')
     const packageJson = JSON.parse(packageJsonString)
+    console.log('Version from package.json:', packageJson.version);
     packageJson.version = v
     await fs.promises.writeFile('package.json', JSON.stringify(packageJson, null, 2))
 
@@ -205,33 +243,19 @@ async function checkFolderStructure() {
 
 async function main() {
   try {
-    const packageJsonString = await fs.promises.readFile('package.json', 'utf8')
-    const packageJson = JSON.parse(packageJsonString)
-    let newVersion;
-    const calver = await import('calver');
-    try {
-        newVersion = await calver.inc(format, packageJson.version, 'calendar.patch');
-    } catch (error) {
-        console.error('Invalid version format: ', packageJson.version);
-        console.error('Falling back to current date as version...');
+    const packageJsonString = await fs.promises.readFile('package.json', 'utf8');
+    const packageJson = JSON.parse(packageJsonString);
+    const newVersion = await getNewVersion(packageJson.version);
 
-        const date = new Date();
-        const year = date.getFullYear().toString().substr(-2); // get last two digits of year
-        const month = ('0' + (date.getMonth() + 1)).slice(-2); // get month and ensure it is 2 digits
-        const patch = '01'; // default patch version
-
-        newVersion = `${year}.${month}.${patch}`;
-    }
-
-    await checkFolderStructure()
-    await updatePackageVersion(newVersion)
-    await prepareBuildDirectory()
-    await copySvelteBuildContents()
-    await createZipFiles(psXML, newVersion)
-    await pruneArchive()
+    await checkFolderStructure();
+    await updatePackageVersion(newVersion);
+    await prepareBuildDirectory();
+    await copySvelteBuildContents();
+    await createZipFiles(psXML, newVersion);
+    await pruneArchive();
   } catch (error) {
-    console.error(error)
+    console.error('Error in main function:', error);
   }
 }
 
-main()
+main();
