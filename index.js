@@ -195,6 +195,10 @@ async function writeXml(psXML) {
   fs.writeFileSync('plugin.xml', xmlOutput)
   fs.writeFileSync(`${buildDirectory}/plugin.xml`, xmlOutput)
 
+  if (!fs.existsSync(schemaDirectory)) {
+    fs.mkdirSync(schemaDirectory, { recursive: true });
+  }
+
   if (fs.existsSync(`${schemaDirectory}`)) {
     psXML.plugin.$.name += ' DATA'
     delete psXML.plugin.access_request
