@@ -3,7 +3,7 @@
     {
       "htmlID": "psPackagePageCatalogingExample",
       "title": "Students Example",
-      "version": "24.11.08",
+      "version": "24.11.09",
       "contextType": "student",
       "requiredContext": "student",
       "sortOrder": 200,
