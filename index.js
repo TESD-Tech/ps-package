@@ -74,7 +74,7 @@ async function removeJunk(dir) {
 
 async function mergePSfolders(targetDir) {
   for (const folder of psFolders) {
-    const thisDir = folder === 'user_schema_root' ? schemaDirectory : targetDir
+    const thisDir = (folder === 'user_schema_root' || folder === 'MessageKeys') ? schemaDirectory : targetDir
 
     if (fs.existsSync(`${thisDir}/${folder}`) && folder !== 'WEB_ROOT')
       await fs.promises.rm(`${thisDir}/${folder}`, { recursive: true })
