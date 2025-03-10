@@ -28,13 +28,13 @@
   "dependencies": {
     "archiver": "^7.0.1",
     "calver": "^24.1.0",
-    "fs-extra": "^11.2.0",
+    "fs-extra": "^11.3.0",
     "minimist": "^1.2.8",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^3.12.0",
-    "eslint": "^9.17.0",
-    "typescript": "^5.7.2"
+    "@antfu/eslint-config": "^4.8.1",
+    "eslint": "^9.22.0",
+    "typescript": "^5.8.2"
   }
 }
