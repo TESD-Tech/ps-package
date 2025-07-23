@@ -4,7 +4,7 @@ import xml2js from 'xml2js';
 import archiver from 'archiver';
 import logger from './utils/logger.js';
 import * as util from 'node:util';
-import * as util from 'node:util';
+import * as stream from 'node:stream';
 
 // Use the promises API from the core fs module for async operations
 const fsPromises = fs.promises;
@@ -155,7 +155,7 @@ async function createPluginZip(sourceFolder, zipFileName) {
     const output = fs.createWriteStream(outputPath);
     const archive = archiver('zip', { zlib: { level: 9 } });
 
-    const streamPipeline = util.promisify(require('stream').pipeline);
+    const streamPipeline = util.promisify(stream.pipeline);
 
     archive.on('warning', (err) => {
       if (err.code === 'ENOENT') {
