@@ -9,7 +9,7 @@
   "main": "index.js",
   "scripts": {
     "build": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
     "release": "standard-version && git push --follow-tags && npm publish"
   },
   "repository": {
@@ -33,8 +33,9 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.13.2",
-    "eslint": "^9.28.0",
-    "typescript": "^5.8.3"
+    "@antfu/eslint-config": "^4.18.0",
+    "eslint": "^9.31.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }
