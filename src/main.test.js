@@ -81,6 +81,7 @@ vi.mock('node:util', () => ({
 import { promises as fsPromises } from 'node:fs';
 import * as xml2js from 'xml2js';
 import archiver from 'archiver';
+import path from 'node:path';
 import * as stream from 'node:stream';
 
 // Now, import the functions from the script
@@ -177,9 +178,9 @@ describe('Build Script Logic (Vitest)', () => {
       await main();
 
       // Verify the flow
-      expect(fsPromises.readFile).toHaveBeenCalledWith('package.json', 'utf8');
-      expect(fsPromises.mkdir).toHaveBeenCalledWith('dist', { recursive: true });
-      expect(fsPromises.writeFile).toHaveBeenCalledWith('package.json', expect.any(String));
+      expect(fsPromises.readFile).toHaveBeenCalledWith(path.join(process.cwd(), 'package.json'), 'utf8');
+      expect(fsPromises.mkdir).toHaveBeenCalledWith(path.join(process.cwd(), 'dist'), { recursive: true });
+      expect(fsPromises.writeFile).toHaveBeenCalledWith(path.join(process.cwd(), 'package.json'), expect.any(String));
       expect(fsPromises.cp).toHaveBeenCalled(); // mergePSfolders was called
       expect(archiver).toHaveBeenCalledTimes(2); // createPluginZip called twice
       expect(fsPromises.rm).toHaveBeenCalled(); // pruneArchives was called
@@ -191,8 +192,8 @@ describe('Build Script Logic (Vitest)', () => {
       fsPromises.readFile.mockRejectedValue(new Error('File not found'));
 
       await expect(main()).rejects.toThrow('File not found');
-      expect(console.error).toHaveBeenCalledWith('\n--- BUILD FAILED ---');
-      expect(console.error).toHaveBeenCalledWith(expect.any(Error));
+      expect(logger.error).toHaveBeenCalledWith('\n--- BUILD FAILED ---');
+      expect(logger.error).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 });

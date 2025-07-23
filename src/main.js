@@ -12,11 +12,12 @@ const fsPromises = fs.promises;
 // --- CONFIGURATION ---
 // Centralized configuration for easier management of paths and settings.
 const config = {
-  sourceDir: 'src',
-  buildDir: 'dist',
-  archiveDir: 'plugin_archive',
-  schemaDir: 'schema',
-  powerSchoolSourceDir: 'src/powerschool',
+  projectRoot: process.cwd(),
+  sourceDir: path.join(process.cwd(), 'src'),
+  buildDir: path.join(process.cwd(), 'dist'),
+  archiveDir: path.join(process.cwd(), 'plugin_archive'),
+  schemaDir: path.join(process.cwd(), 'schema'),
+  powerSchoolSourceDir: path.join(process.cwd(), 'src', 'powerschool'),
   // Folders to be merged into the build.
   psFolders: ['permissions_root', 'user_schema_root', 'queries_root', 'WEB_ROOT', 'pagecataloging', 'MessageKeys'],
   // Files to be removed from the build.
@@ -112,14 +113,14 @@ async function removeJunk(dir) {
  * Merges PowerSchool-specific folders from the source directory into a target directory.
  * @param {string} targetDir - The destination directory (e.g., 'dist' or 'schema').
  */
-async function mergePSfolders(targetDir) {
+async function mergePSfolders() {
   logger.info('Merging PowerSchool folders...');
   for (const folder of config.psFolders) {
     const sourcePath = path.join(config.powerSchoolSourceDir, folder);
     // Specific folders go into the schema directory.
     const destPath = (folder === 'user_schema_root' || folder === 'MessageKeys')
       ? path.join(config.schemaDir, folder)
-      : path.join(targetDir, folder);
+      : path.join(config.buildDir, folder);
 
     try {
       // Check if the source exists before trying to copy.
@@ -133,7 +134,7 @@ async function mergePSfolders(targetDir) {
     } catch (error) {
       if (error.code === 'ENOENT') {
         // It's okay if a source folder doesn't exist, just skip it.
-        // console.log(`  - Skipping non-existent source folder: ${sourcePath}`);
+        // logger.info(`  - Skipping non-existent source folder: ${sourcePath}`);
       } else {
         logger.error(`Error merging folder ${folder}:`, error);
       }
@@ -238,7 +239,7 @@ async function writeXmlVariants(psXML, newVersion) {
 
   // Write main plugin.xml
   const xmlOutput = builder.buildObject(psXML);
-  await fsPromises.writeFile('plugin.xml', xmlOutput);
+  await fsPromises.writeFile(path.join(config.projectRoot, 'plugin.xml'), xmlOutput);
   await fsPromises.writeFile(path.join(config.buildDir, 'plugin.xml'), xmlOutput);
   logger.info(`Updated plugin.xml to version ${newVersion}`);
 
@@ -272,14 +273,14 @@ async function writeXmlVariants(psXML, newVersion) {
  */
 async function updatePackageVersions(newVersion) {
   // Update package.json
-  const packageJsonString = await fsPromises.readFile('package.json', 'utf8');
+  const packageJsonString = await fsPromises.readFile(path.join(config.projectRoot, 'package.json'), 'utf8');
   const packageJson = JSON.parse(packageJsonString);
   packageJson.version = newVersion;
-  await fsPromises.writeFile('package.json', JSON.stringify(packageJson, null, 2));
+  await fsPromises.writeFile(path.join(config.projectRoot, 'package.json'), JSON.stringify(packageJson, null, 2));
   logger.info(`Updated package.json to version ${newVersion}`);
 
   // Update plugin.xml
-  const xmlString = await fsPromises.readFile('plugin.xml', 'utf8');
+  const xmlString = await fsPromises.readFile(path.join(config.projectRoot, 'plugin.xml'), 'utf8');
   const psXML = await xml2js.parseStringPromise(xmlString);
   await writeXmlVariants(psXML, newVersion);
 
@@ -329,7 +330,7 @@ async function pruneArchives() {
  */
 async function prepareBuildDirectory() {
   logger.info('Preparing build directory...');
-  await mergePSfolders(config.buildDir);
+  await mergePSfolders();
   await removeJunk(config.buildDir);
 
   // Remove the template index.html if it exists in the final build
@@ -355,7 +356,7 @@ async function copySvelteBuildContents(psXML) {
 
   try {
     const pluginName = slugify(psXML.plugin.$.name);
-    const sourceDir = 'public/build';
+    const sourceDir = path.join(config.projectRoot, 'public', 'build');
     const targetDir = path.join(config.buildDir, 'WEB_ROOT', pluginName);
 
     await fsPromises.access(sourceDir); // Check if svelte build output exists
@@ -385,14 +386,14 @@ async function ensureDirectoriesExist() {
  * Main build process orchestrator.
  */
 export async function main() {
-  console.log('Starting plugin build process...');
+  logger.info('Starting plugin build process...');
   try {
-    const packageJsonString = await fsPromises.readFile('package.json', 'utf8');
+    const packageJsonString = await fsPromises.readFile(path.join(config.projectRoot, 'package.json'), 'utf8');
     const { version: currentVersion, name: pluginName } = JSON.parse(packageJsonString);
     const newVersion = getNewVersion(currentVersion);
 
-    console.log(`Plugin: ${pluginName}`);
-    console.log(`Current Version: ${currentVersion} -> New Version: ${newVersion}`);
+    logger.info(`Plugin: ${pluginName}`);
+    logger.info(`Current Version: ${currentVersion} -> New Version: ${newVersion}`);
 
     await ensureDirectoriesExist();
     const psXML = await updatePackageVersions(newVersion);
@@ -400,7 +401,7 @@ export async function main() {
     await copySvelteBuildContents(psXML);
 
     // Create Archives
-    console.log('Creating zip archives...');
+    logger.info('Creating zip archives...');
     const slugName = slugify(psXML.plugin.$.name);
     const zipFileName = `${slugName}-${newVersion}.zip`;
     const schemaZipFileName = `DATA-${zipFileName}`;
@@ -409,10 +410,10 @@ export async function main() {
 
     await pruneArchives();
 
-    console.log('Build process completed successfully!');
+    logger.info('Build process completed successfully!');
   } catch (error) {
-    console.error('\n--- BUILD FAILED ---');
-    console.error(error);
+    logger.error('\n--- BUILD FAILED ---');
+    logger.error(error);
     throw error; // Throw the error instead of exiting
   }
 }
