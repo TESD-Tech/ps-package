@@ -2,6 +2,9 @@ import * as fs from 'node:fs';
 import path from 'node:path';
 import xml2js from 'xml2js';
 import archiver from 'archiver';
+import logger from './utils/logger.js';
+import * as util from 'node:util';
+import * as util from 'node:util';
 
 // Use the promises API from the core fs module for async operations
 const fsPromises = fs.promises;
@@ -60,7 +63,7 @@ export function getNewVersion(currentVersion) {
 
     return `${newYear}.${String(newMonth).padStart(2, '0')}.${String(newPatch).padStart(2, '0')}`;
   } catch (error) {
-    console.warn(`Warning: Could not parse current version "${currentVersion}". Falling back to a new version based on today's date.`);
+    logger.warn(`Could not parse current version "${currentVersion}". Falling back to a new version based on today's date.`);
     const now = new Date();
     const year = now.getFullYear().toString().slice(-2);
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -94,13 +97,13 @@ async function removeJunk(dir) {
         await removeJunk(fullPath);
       } else if (config.junkFiles.includes(file)) {
         await fsPromises.unlink(fullPath);
-        console.log(`Deleted junk file: ${fullPath}`);
+        logger.info(`Deleted junk file: ${fullPath}`);
       }
     }
   } catch (error) {
     // Ignore errors for non-existent directories, as the goal is to ensure junk is gone.
     if (error.code !== 'ENOENT') {
-      console.error(`Error removing junk from ${dir}:`, error);
+      logger.error(`Error removing junk from ${dir}:`, error);
     }
   }
 }
@@ -110,7 +113,7 @@ async function removeJunk(dir) {
  * @param {string} targetDir - The destination directory (e.g., 'dist' or 'schema').
  */
 async function mergePSfolders(targetDir) {
-  console.log('Merging PowerSchool folders...');
+  logger.info('Merging PowerSchool folders...');
   for (const folder of config.psFolders) {
     const sourcePath = path.join(config.powerSchoolSourceDir, folder);
     // Specific folders go into the schema directory.
@@ -126,13 +129,13 @@ async function mergePSfolders(targetDir) {
         await fsPromises.rm(destPath, { recursive: true, force: true });
       }
       await fsPromises.cp(sourcePath, destPath, { recursive: true });
-      console.log(`  - Merged ${sourcePath} -> ${destPath}`);
+      logger.info(`  - Merged ${sourcePath} -> ${destPath}`);
     } catch (error) {
       if (error.code === 'ENOENT') {
         // It's okay if a source folder doesn't exist, just skip it.
         // console.log(`  - Skipping non-existent source folder: ${sourcePath}`);
       } else {
-        console.error(`Error merging folder ${folder}:`, error);
+        logger.error(`Error merging folder ${folder}:`, error);
       }
     }
   }
@@ -144,42 +147,41 @@ async function mergePSfolders(targetDir) {
  * @param {string} zipFileName - The name of the output zip file.
  * @returns {Promise<void>} A promise that resolves when the archive is created.
  */
-function createPluginZip(sourceFolder, zipFileName) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      await fsPromises.access(sourceFolder); // Check if source folder exists.
-      const outputPath = path.join(config.archiveDir, zipFileName);
-      // Use the core fs.createWriteStream, not from fsPromises
-      const output = fs.createWriteStream(outputPath);
-      const archive = archiver('zip', { zlib: { level: 9 } });
+async function createPluginZip(sourceFolder, zipFileName) {
+  try {
+    await fsPromises.access(sourceFolder); // Check if source folder exists.
+    const outputPath = path.join(config.archiveDir, zipFileName);
+    const output = fs.createWriteStream(outputPath);
+    const archive = archiver('zip', { zlib: { level: 9 } });
 
-      output.on('close', () => {
-        console.log(`Archive created: ${outputPath} (${archive.pointer()} bytes)`);
-        resolve();
-      });
+    const streamPipeline = util.promisify(require('stream').pipeline);
 
-      archive.on('warning', (err) => {
-        if (err.code === 'ENOENT') {
-          console.warn('Archiver warning:', err);
-        } else {
-          reject(err);
-        }
-      });
-
-      archive.on('error', (err) => reject(err));
-
-      archive.pipe(output);
-      archive.directory(sourceFolder, false);
-      await archive.finalize();
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        console.log(`Skipping archive creation for non-existent folder: ${sourceFolder}`);
-        resolve(); // Resolve silently if the source folder doesn't exist.
+    archive.on('warning', (err) => {
+      if (err.code === 'ENOENT') {
+        logger.warn('Archiver warning:', err);
       } else {
-        reject(new Error(`Failed to create zip for ${sourceFolder}: ${error.message}`));
+        logger.error('Archiver error:', err);
+        throw err; // Re-throw other warnings as errors
       }
+    });
+
+    archive.on('error', (err) => {
+      logger.error('Archiver error:', err);
+      throw err;
+    });
+
+    archive.directory(sourceFolder, false);
+    archive.finalize();
+
+    await streamPipeline(archive, output);
+    logger.info(`Archive created: ${outputPath} (${archive.pointer()} bytes)`);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      logger.info(`Skipping archive creation for non-existent folder: ${sourceFolder}`);
+    } else {
+      throw new Error(`Failed to create zip for ${sourceFolder}: ${error.message}`);
     }
-  });
+  }
 }
 
 /**
@@ -214,13 +216,13 @@ async function updateJsonVersionsInDir(dir, newVersion) {
           updateVersionInObject(jsonObj);
           await fsPromises.writeFile(fullPath, JSON.stringify(jsonObj, null, 2));
         } catch (parseError) {
-          console.warn(`Could not parse or update JSON file: ${fullPath}`, parseError);
+          logger.warn(`Could not parse or update JSON file: ${fullPath}`, parseError);
         }
       }
     }
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      console.error(`Error updating JSON versions in ${dir}:`, error);
+      logger.error(`Error updating JSON versions in ${dir}:`, error);
     }
   }
 }
@@ -238,7 +240,7 @@ async function writeXmlVariants(psXML, newVersion) {
   const xmlOutput = builder.buildObject(psXML);
   await fsPromises.writeFile('plugin.xml', xmlOutput);
   await fsPromises.writeFile(path.join(config.buildDir, 'plugin.xml'), xmlOutput);
-  console.log(`Updated plugin.xml to version ${newVersion}`);
+  logger.info(`Updated plugin.xml to version ${newVersion}`);
 
   // Create and write schema-only plugin.xml
   try {
@@ -246,19 +248,19 @@ async function writeXmlVariants(psXML, newVersion) {
     const originalName = psXML.plugin.$.name;
     if (originalName.length > 35) {
       psXML.plugin.$.name = originalName.substring(0, 35);
-      console.warn(`Plugin name truncated for schema XML: ${psXML.plugin.$.name}`);
+      logger.warn(`Plugin name truncated for schema XML: ${psXML.plugin.$.name}`);
     }
     psXML.plugin.$.name += ' DATA';
     delete psXML.plugin.access_request; // Remove fields not needed for data plugin
 
     const xmlOutputData = builder.buildObject(psXML);
     await fsPromises.writeFile(path.join(config.schemaDir, 'plugin.xml'), xmlOutputData);
-    console.log(`Created schema-only plugin.xml`);
+    logger.info(`Created schema-only plugin.xml`);
 
     // Restore original name for any subsequent operations
     psXML.plugin.$.name = originalName;
   } catch (error) {
-    console.error('Could not create schema XML variant:', error);
+    logger.error('Could not create schema XML variant:', error);
   }
 }
 
@@ -274,7 +276,7 @@ async function updatePackageVersions(newVersion) {
   const packageJson = JSON.parse(packageJsonString);
   packageJson.version = newVersion;
   await fsPromises.writeFile('package.json', JSON.stringify(packageJson, null, 2));
-  console.log(`Updated package.json to version ${newVersion}`);
+  logger.info(`Updated package.json to version ${newVersion}`);
 
   // Update plugin.xml
   const xmlString = await fsPromises.readFile('plugin.xml', 'utf8');
@@ -306,18 +308,18 @@ async function pruneArchives() {
 
     const filesToDelete = filesWithStats.slice(config.archivesToKeep);
     if (filesToDelete.length > 0) {
-      console.log(`Pruning old archives (keeping last ${config.archivesToKeep})...`);
+      logger.info(`Pruning old archives (keeping last ${config.archivesToKeep})...`);
       for (const { file } of filesToDelete) {
         const itemPath = path.join(config.archiveDir, file);
         // Use rm which can handle both files and directories
         await fsPromises.rm(itemPath, { recursive: true, force: true });
-        console.log(`  - Deleted old archive item: ${file}`);
+        logger.info(`  - Deleted old archive item: ${file}`);
       }
     }
   } catch (error) {
     // This check might be redundant with force:true in rm, but it's safe.
     if (error.code !== 'ENOENT') {
-      console.error('Error pruning archives:', error);
+      logger.error('Error pruning archives:', error);
     }
   }
 }
@@ -326,7 +328,7 @@ async function pruneArchives() {
  * Prepares the build directory by merging folders and cleaning junk.
  */
 async function prepareBuildDirectory() {
-  console.log('Preparing build directory...');
+  logger.info('Preparing build directory...');
   await mergePSfolders(config.buildDir);
   await removeJunk(config.buildDir);
 
@@ -334,11 +336,11 @@ async function prepareBuildDirectory() {
   const indexPath = path.join(config.buildDir, 'WEB_ROOT', 'index.html');
   try {
     await fsPromises.unlink(indexPath);
-    console.log(`Deleted template file: ${indexPath}`);
+    logger.info(`Deleted template file: ${indexPath}`);
   } catch (error) {
     // Only log an error if it's something other than "file not found".
     if (error.code !== 'ENOENT') {
-      console.error(`Error deleting ${indexPath}:`, error);
+      logger.error(`Error deleting ${indexPath}:`, error);
     }
     // Otherwise, we silently ignore the error, as the file not existing is acceptable.
   }
@@ -358,12 +360,12 @@ async function copySvelteBuildContents(psXML) {
 
     await fsPromises.access(sourceDir); // Check if svelte build output exists
     await fsPromises.cp(sourceDir, targetDir, { recursive: true });
-    console.log(`Copied Svelte build contents to ${targetDir}`);
+    logger.info(`Copied Svelte build contents to ${targetDir}`);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.warn('Svelte build output not found, skipping copy step.');
+      logger.warn('Svelte build output not found, skipping copy step.');
     } else {
-      console.error('Error copying Svelte build contents:', error);
+      logger.error('Error copying Svelte build contents:', error);
     }
   }
 }
@@ -372,7 +374,7 @@ async function copySvelteBuildContents(psXML) {
  * Ensures that all necessary directories exist before the build starts.
  */
 async function ensureDirectoriesExist() {
-  console.log('Verifying directory structure...');
+  logger.info('Verifying directory structure...');
   const dirs = [config.buildDir, config.archiveDir, config.schemaDir];
   for (const dir of dirs) {
     await fsPromises.mkdir(dir, { recursive: true });

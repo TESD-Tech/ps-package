@@ -1,4 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { EventEmitter } from 'node:events';
+
+vi.mock('./utils/logger.js', () => ({
+  default: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 // Mock the external modules before importing the script to be tested.
 // Vitest hoists these mocks, so they apply before any imports run.
@@ -18,16 +27,21 @@ vi.mock('node:fs', async () => {
       access: vi.fn().mockResolvedValue(undefined),
       mkdir: vi.fn().mockResolvedValue(undefined),
     },
-    createWriteStream: vi.fn(() => ({
-      on: vi.fn(function(event, cb) {
-        // Immediately call the 'close' event handler to simulate a successful write
-        if (event === 'close') {
-          cb();
+         createWriteStream: vi.fn(() => {
+      const mockWritable = new stream.Writable({
+        write(chunk, encoding, callback) {
+          callback(); // Simulate successful write
+        },
+        final(callback) {
+          mockWritable.emit('close');
+          callback();
         }
-        return this; // Return `this` to allow chaining
-      }),
-      pipe: vi.fn(),
-    })),
+      });
+      // Mock 'on' and 'once' if they are explicitly called on the stream instance
+      vi.spyOn(mockWritable, 'on');
+      vi.spyOn(mockWritable, 'once');
+      return mockWritable;
+    }),
   };
 });
 
@@ -40,25 +54,38 @@ vi.mock('xml2js', () => ({
   }
 }));
 
-vi.mock('archiver', () => {
-  const mockArchiver = {
-    on: vi.fn().mockReturnThis(),
-    pipe: vi.fn().mockReturnThis(),
-    directory: vi.fn().mockReturnThis(),
-    finalize: vi.fn().mockResolvedValue(undefined),
-    pointer: vi.fn().mockReturnValue(1234), // Mock byte size
-  };
-  // The default export of archiver is a function
-  return { default: vi.fn(() => mockArchiver) };
+vi.mock('archiver', async () => {
+  const { EventEmitter } = await vi.importActual('node:events');
+  class MockArchiver extends EventEmitter {
+    constructor() {
+      super();
+      this.on = vi.fn(this.on.bind(this));
+      this.once = vi.fn(this.once.bind(this));
+      this.pipe = vi.fn().mockReturnThis();
+      this.directory = vi.fn().mockReturnThis();
+      this.finalize = vi.fn(function() {
+        this.emit('end');
+        return Promise.resolve();
+      }).bind(this);
+      this.pointer = vi.fn().mockReturnValue(1234);
+    }
+  }
+  return { default: vi.fn(() => new MockArchiver()) };
 });
+
+vi.mock('node:util', () => ({
+  promisify: vi.fn(() => vi.fn(() => Promise.resolve())), // Mock promisify to return a function that returns a resolved Promise
+}));
 
 // Import the mocked modules to control their behavior in tests
 import { promises as fsPromises } from 'node:fs';
 import * as xml2js from 'xml2js';
 import archiver from 'archiver';
+import * as stream from 'node:stream';
 
 // Now, import the functions from the script
 import { getNewVersion, slugify, main } from './main.js';
+import logger from './utils/logger.js';
 
 describe('Build Script Logic (Vitest)', () => {
 
@@ -107,7 +134,7 @@ describe('Build Script Logic (Vitest)', () => {
       vi.setSystemTime(new Date('2025-07-23T12:00:00Z'));
       const newVersion = getNewVersion('invalid-version');
       expect(newVersion).toBe('25.07.01');
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Could not parse current version'));
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Could not parse current version'));
     });
   });
 
