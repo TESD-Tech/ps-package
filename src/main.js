@@ -31,7 +31,7 @@ const config = {
  * @param {string} currentVersion - The current version string (e.g., "25.07.01").
  * @returns {string} The new, incremented version string.
  */
-function getNewVersion(currentVersion) {
+export function getNewVersion(currentVersion) {
   try {
     const [year, month, patch] = currentVersion.split('.').map(Number);
     if (isNaN(year) || isNaN(month) || isNaN(patch)) {
@@ -74,7 +74,7 @@ function getNewVersion(currentVersion) {
  * @param {string} text The text to slugify.
  * @returns {string} The slugified text.
  */
-function slugify(text) {
+export function slugify(text) {
   // This regex replaces one or more spaces, or a hyphen surrounded by optional spaces, with a single underscore.
   return text.replace(/\s*-\s*|\s+/g, '_');
 }
@@ -382,7 +382,7 @@ async function ensureDirectoriesExist() {
 /**
  * Main build process orchestrator.
  */
-async function main() {
+export async function main() {
   console.log('Starting plugin build process...');
   try {
     const packageJsonString = await fsPromises.readFile('package.json', 'utf8');
@@ -411,9 +411,11 @@ async function main() {
   } catch (error) {
     console.error('\n--- BUILD FAILED ---');
     console.error(error);
-    process.exit(1); // Exit with an error code
+    throw error; // Throw the error instead of exiting
   }
 }
 
 // --- EXECUTION ---
-main();
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
