@@ -1,6 +1,28 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
+import * as xml2js from 'xml2js';
+import archiver from 'archiver';
+import path from 'node:path';
+import *as stream from 'node:stream';
 
+// Mock the external modules before importing the script to be tested.
+// Vitest hoists these mocks, so they apply before any imports run.
+vi.mock('node:fs', () => ({
+  promises: {
+    readdir: vi.fn(),
+    stat: vi.fn(),
+    unlink: vi.fn(),
+    access: vi.fn(),
+    cp: vi.fn(),
+    readFile: vi.fn(),
+    mkdir: vi.fn(),
+    writeFile: vi.fn(),
+    rm: vi.fn(),
+  },
+  createWriteStream: vi.fn(), // Mock createWriteStream as it's used directly from 'node:fs'
+}));
+
+// Mock the logger module
 vi.mock('./utils/logger.js', () => ({
   default: {
     info: vi.fn(),
@@ -9,47 +31,11 @@ vi.mock('./utils/logger.js', () => ({
   },
 }));
 
-// Mock the external modules before importing the script to be tested.
-// Vitest hoists these mocks, so they apply before any imports run.
-vi.mock('node:fs', async () => {
-  const actualFs = await vi.importActual('node:fs');
-  return {
-    ...actualFs, // Import and retain default behavior
-    promises: {
-      ...actualFs.promises,
-      readFile: vi.fn(),
-      writeFile: vi.fn(),
-      readdir: vi.fn().mockResolvedValue([]),
-      stat: vi.fn(),
-      unlink: vi.fn().mockResolvedValue(undefined),
-      rm: vi.fn().mockResolvedValue(undefined),
-      cp: vi.fn().mockResolvedValue(undefined),
-      access: vi.fn().mockResolvedValue(undefined),
-      mkdir: vi.fn().mockResolvedValue(undefined),
-    },
-         createWriteStream: vi.fn(() => {
-      const mockWritable = new stream.Writable({
-        write(chunk, encoding, callback) {
-          callback(); // Simulate successful write
-        },
-        final(callback) {
-          mockWritable.emit('close');
-          callback();
-        }
-      });
-      // Mock 'on' and 'once' if they are explicitly called on the stream instance
-      vi.spyOn(mockWritable, 'on');
-      vi.spyOn(mockWritable, 'once');
-      return mockWritable;
-    }),
-  };
-});
-
 vi.mock('xml2js', () => ({
   default: {
     parseStringPromise: vi.fn(),
     Builder: vi.fn(() => ({
-      buildObject: vi.fn((obj) => JSON.stringify(obj)), // Return a simple string for testing
+      buildObject: vi.fn((obj) => JSON.stringify(obj)),
     })),
   }
 }));
@@ -74,29 +60,38 @@ vi.mock('archiver', async () => {
 });
 
 vi.mock('node:util', () => ({
-  promisify: vi.fn(() => vi.fn(() => Promise.resolve())), // Mock promisify to return a function that returns a resolved Promise
+  promisify: vi.fn(() => vi.fn(() => Promise.resolve())),
 }));
 
-// Import the mocked modules to control their behavior in tests
-import { promises as fsPromises } from 'node:fs';
-import * as xml2js from 'xml2js';
-import archiver from 'archiver';
-import path from 'node:path';
-import * as stream from 'node:stream';
-
-// Now, import the functions from the script
-import { getNewVersion, slugify, main } from './main.js';
+import { promises as fsPromises } from 'node:fs'; // Import fsPromises from the mocked 'node:fs'
 import logger from './utils/logger.js';
+
+// Now, import the functions and config from the script
+import { getNewVersion, slugify, main, removeJunk, copySvelteBuildContents } from './main.js';
+
+vi.mock('./main.js', async (importActual) => {
+  const actual = await importActual();
+  // Initialize mockConfig with actual config values
+  Object.assign(mockConfig, actual.config);
+  return {
+    ...actual,
+    config: mockConfig,
+  };
+});
+
+let mutableConfig = mockConfig; // Assign mockConfig to mutableConfig
 
 describe('Build Script Logic (Vitest)', () => {
 
-  // Reset mocks and spies before each test to ensure isolation
+  // Spy on console methods to prevent polluting test output
   beforeEach(() => {
-    vi.restoreAllMocks();
-    // Spy on console methods to prevent polluting test output
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('getNewVersion', () => {
@@ -153,7 +148,141 @@ describe('Build Script Logic (Vitest)', () => {
     });
   });
 
+  describe('removeJunk', () => {
+    const testDir = '/tmp/test_remove_junk';
+    const junkFile1 = '.DS_Store';
+    const junkFile2 = 'Thumbs.db';
+    const keepFile = 'keep_me.txt';
+    const nestedDir = 'nested';
+    const nestedJunkFile = '.DS_Store';
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      // Mock config.junkFiles for this test suite
+      config.junkFiles = ['.DS_Store', 'Thumbs.db'];
+    });
+
+    it('should remove specified junk files from a directory', async () => {
+      fsPromises.readdir.mockResolvedValueOnce([junkFile1, keepFile]);
+      fsPromises.stat.mockImplementation((p) => {
+        const fileName = path.basename(p);
+        if (config.junkFiles.includes(fileName) || fileName === keepFile) {
+          return Promise.resolve({ isDirectory: () => false });
+        }
+        if (fileName === nestedDir) {
+          return Promise.resolve({ isDirectory: () => true });
+        }
+        return Promise.resolve({ isDirectory: () => false }); // Default to file if not explicitly a directory
+      });
+      await removeJunk(testDir);
+      expect(fsPromises.unlink).toHaveBeenCalledWith(path.join(testDir, junkFile1));
+      expect(fsPromises.unlink).not.toHaveBeenCalledWith(path.join(testDir, keepFile));
+      expect(logger.info).toHaveBeenCalledWith(`Deleted junk file: ${path.join(testDir, junkFile1)}`);
+    });
+
+    it('should recursively remove junk files from nested directories', async () => {
+      fsPromises.readdir.mockImplementation((dir) => {
+        if (dir === testDir) {
+          return Promise.resolve([nestedDir]);
+        } else if (dir === path.join(testDir, nestedDir)) {
+          return Promise.resolve(['.DS_Store', keepFile]);
+        }
+        return Promise.resolve([]);
+      });
+
+      fsPromises.stat.mockImplementation((p) => {
+        const fileName = path.basename(p);
+        if (fileName === nestedDir) return Promise.resolve({ isDirectory: () => true });
+        if (fileName === nestedJunkFile || fileName === keepFile) return Promise.resolve({ isDirectory: () => false });
+        return Promise.resolve({ isDirectory: () => false });
+      });
+
+      await removeJunk(testDir);
+      expect(fsPromises.unlink).toHaveBeenCalledWith(path.join(testDir, nestedDir, nestedJunkFile));
+      expect(logger.info).toHaveBeenCalledWith(`Deleted junk file: ${path.join(testDir, nestedDir, nestedJunkFile)}`);
+    });
+
+    it('should not throw an error if the directory does not exist (ENOENT)', async () => {
+      fsPromises.readdir.mockRejectedValueOnce(Object.assign(new Error('No such file or directory'), { code: 'ENOENT' }));
+      await expect(removeJunk(testDir)).resolves.toBeUndefined();
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it('should log an error if another error occurs during file system operations', async () => {
+      const mockError = new Error('Permission denied');
+      fsPromises.readdir.mockRejectedValueOnce(mockError);
+      await expect(removeJunk(testDir)).resolves.toBeUndefined(); // removeJunk catches and logs, doesn't re-throw
+      expect(logger.error).toHaveBeenCalledWith(`Error removing junk from ${testDir}:`, mockError);
+    });
+  });
+
+  describe('copySvelteBuildContents', () => {
+    const svelteSourceDir = path.join(process.cwd(), 'public', 'build');
+    const svelteTargetDir = path.join(process.cwd(), 'dist', 'WEB_ROOT', 'Test_Plugin'); // Assuming slugified name
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      // Set mock implementations for fsPromises
+      fsPromises.access.mockResolvedValue(undefined);
+      fsPromises.cp.mockResolvedValue(undefined);
+      mockConfig.projectType = 'svelte';
+      mockConfig.projectRoot = process.cwd();
+      mockConfig.buildDir = path.join(process.cwd(), 'dist');
+    });
+
+    it('should copy svelte build contents if projectType is svelte', async () => {
+      fsPromises.access.mockResolvedValue(undefined); // Source directory exists
+      fsPromises.cp.mockResolvedValue(undefined); // Copy succeeds
+
+      const psXML = { plugin: { $: { name: 'Test Plugin' } } };
+      await copySvelteBuildContents(psXML);
+
+      expect(fsPromises.access).toHaveBeenCalledWith(svelteSourceDir);
+      expect(fsPromises.cp).toHaveBeenCalledWith(svelteSourceDir, svelteTargetDir, { recursive: true });
+      expect(logger.info).toHaveBeenCalledWith(`Copied Svelte build contents to ${svelteTargetDir}`);
+    });
+
+    it('should not copy svelte build contents if projectType is not svelte', async () => {
+      config.projectType = 'vue'; // Set to a different type
+      await copySvelteBuildContents({}); // Call with dummy psXML
+
+      expect(fsPromises.access).not.toHaveBeenCalled();
+      expect(fsPromises.cp).not.toHaveBeenCalled();
+      expect(logger.info).not.toHaveBeenCalled();
+    });
+
+    it('should log a warning if svelte build output is not found (ENOENT)', async () => {
+      fsPromises.access.mockRejectedValue(Object.assign(new Error('No such file or directory'), { code: 'ENOENT' }));
+      const psXML = { plugin: { $: { name: 'Test Plugin' } } };
+      await copySvelteBuildContents(psXML);
+
+      expect(logger.warn).toHaveBeenCalledWith('Svelte build output not found, skipping copy step.');
+      expect(fsPromises.cp).not.toHaveBeenCalled();
+    });
+
+    it('should log an error if copying fails for other reasons', async () => {
+      const mockError = new Error('Permission denied');
+      fsPromises.access.mockResolvedValue(undefined);
+      fsPromises.cp.mockRejectedValue(mockError);
+      const psXML = { plugin: { $: { name: 'Test Plugin' } } };
+      await copySvelteBuildContents(psXML);
+
+      expect(logger.error).toHaveBeenCalledWith('Error copying Svelte build contents:', mockError);
+    });
+  });
+
   describe('main orchestrator', () => {
+    beforeEach(() => {
+      // Set mock implementations for fsPromises
+      fsPromises.readFile.mockResolvedValue(undefined);
+      fsPromises.mkdir.mockResolvedValue(undefined);
+      fsPromises.writeFile.mockResolvedValue(undefined);
+      fsPromises.cp.mockResolvedValue(undefined);
+      fsPromises.readdir.mockResolvedValue([]);
+      fsPromises.stat.mockResolvedValue({ mtimeMs: Date.now(), isDirectory: () => false });
+      fsPromises.rm.mockResolvedValue(undefined);
+    });
+
     it('should run the full build process in the correct order', async () => {
       // Mock the file reads to provide necessary data
       fsPromises.readFile

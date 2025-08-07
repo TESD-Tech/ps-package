@@ -2,6 +2,21 @@
 
 ### I. Analyze `src/main.js` (Current State)
 
+### Improvements for `src/main.js`
+
+1.  **Enhance Error Handling and Logging:**
+    *   **Current:** Errors are caught, logged to `console.error`, and then re-thrown.
+    *   **Improvement:** Implement a more structured logging approach. Instead of just `console.error`, consider a simple logging utility that can categorize messages (e.g., `log.info`, `log.warn`, `log.error`) and potentially include more context (e.g., the function where the error occurred). This makes debugging easier and allows for different handling of critical vs. non-critical issues. For instance, some errors might warrant a detailed stack trace, while others just a warning.
+
+2.  **Refine Path Management and Configuration:**
+    *   **Current:** The `config` object centralizes some paths, but others are constructed dynamically within functions (e.g., `path.join(config.archiveDir, zipFileName)`).
+    *   **Improvement:** Consolidate all path definitions and resolutions within the `config` object or a dedicated path utility. Ensure all paths are absolute from the project root as early as possible. This reduces potential issues with relative paths and makes the configuration clearer. Additionally, consider allowing the `config` to be loaded from an external file (e.g., `config.json`) to enable easier customization without modifying the source code directly.
+
+3.  **Refactor `createPluginZip` for Cleaner Asynchronous Code:**
+    *   **Current:** The `createPluginZip` function uses the `new Promise` constructor pattern.
+    *   **Improvement:** This function can be refactored to leverage `async/await` directly, which often leads to more readable and maintainable asynchronous code by avoiding the explicit `Promise` constructor. The `output.on('close', ...)` and `archive.on('error', ...)` callbacks can be wrapped in a utility or handled with `async/await` friendly event listeners if available, or by converting the event into a promise.
+
+
 *   **Functions:** `getNewVersion` (exported), `removeJunk`, `mergePSfolders`, `createPluginZip`, `updateJsonVersion`, `updateVersionInObject`, `updatePackageVersion`, `pruneArchive`, `parseXml`, `writeXml`, `prepareBuildDirectory`, `createZipFiles`, `copySvelteBuildContents`, `checkFolderStructure`, `main` (exported).
 *   **Global Dependencies:** `argv`, `source`, `type`, `config` object (containing `archiveDirectory`, `buildDirectory`, `schemaDirectory`, `srcDirectory`, `psFolders`, `junkFiles`), `format`. Crucially, `psXML` is initialized via a top-level `await parseXml()`, making it a global variable with side effects on module import. `zipFileName` and `schemaZipFileName` are also global `let` variables.
 *   **External Modules:** `node:path`, `node:fs`, `xml2js`, `archiver`, `minimist`.

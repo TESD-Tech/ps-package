@@ -11,7 +11,7 @@ const fsPromises = fs.promises;
 
 // --- CONFIGURATION ---
 // Centralized configuration for easier management of paths and settings.
-const config = {
+export const config = {
   projectRoot: process.cwd(),
   sourceDir: path.join(process.cwd(), 'src'),
   buildDir: path.join(process.cwd(), 'dist'),
@@ -87,7 +87,7 @@ export function slugify(text) {
  * Recursively removes specified junk files from a directory.
  * @param {string} dir - The directory to clean.
  */
-async function removeJunk(dir) {
+export async function removeJunk(dir) {
   try {
     const files = await fsPromises.readdir(dir);
     for (const file of files) {
@@ -351,7 +351,7 @@ async function prepareBuildDirectory() {
  * Copies Svelte build artifacts to the correct plugin location.
  * @param {object} psXML - The parsed plugin.xml object.
  */
-async function copySvelteBuildContents(psXML) {
+export async function copySvelteBuildContents(psXML) {
   if (config.projectType !== 'svelte') return;
 
   try {

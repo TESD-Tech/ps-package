@@ -107,3 +107,8 @@ dist
 .tern-port
 
 .DS_Store
+
+# Gemini CLI specific files
+GEMINI.md
+PLAN.md
+.
