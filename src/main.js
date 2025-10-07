@@ -102,10 +102,12 @@ export async function removeJunk(dir) {
       }
     }
   } catch (error) {
-    // Ignore errors for non-existent directories, as the goal is to ensure junk is gone.
-    if (error.code !== 'ENOENT') {
-      logger.error(`Error removing junk from ${dir}:`, error);
+    // Missing directories are expected - junk cleanup is best-effort
+    if (error.code === 'ENOENT') {
+      return; // Silently skip - directory doesn't exist, nothing to clean
     }
+    // Other errors (permissions, disk full, etc.) should be logged but not fail the build
+    logger.warn(`Could not clean junk files from ${dir}: ${error.message}`);
   }
 }
 
@@ -115,6 +117,8 @@ export async function removeJunk(dir) {
  */
 async function mergePSfolders() {
   logger.info('Merging PowerSchool folders...');
+  const errors = [];
+
   for (const folder of config.psFolders) {
     const sourcePath = path.join(config.powerSchoolSourceDir, folder);
     // Specific folders go into the schema directory.
@@ -134,11 +138,19 @@ async function mergePSfolders() {
     } catch (error) {
       if (error.code === 'ENOENT') {
         // It's okay if a source folder doesn't exist, just skip it.
-        // logger.info(`  - Skipping non-existent source folder: ${sourcePath}`);
+        logger.info(`  - Skipping non-existent folder: ${folder}`);
       } else {
-        logger.error(`Error merging folder ${folder}:`, error);
+        // Critical error - collect it and fail after attempting all folders
+        const errorMsg = `Failed to merge folder ${folder}: ${error.message}`;
+        logger.error(`  - ${errorMsg}`);
+        errors.push(errorMsg);
       }
     }
+  }
+
+  // If there were critical errors, fail the build
+  if (errors.length > 0) {
+    throw new Error(`Failed to merge PowerSchool folders:\n  ${errors.join('\n  ')}`);
   }
 }
 
@@ -175,7 +187,18 @@ async function createPluginZip(sourceFolder, zipFileName) {
     archive.finalize();
 
     await streamPipeline(archive, output);
-    logger.info(`Archive created: ${outputPath} (${archive.pointer()} bytes)`);
+
+    const archiveSize = archive.pointer();
+    logger.info(`Archive created: ${outputPath} (${archiveSize} bytes)`);
+
+    // Validate the archive was created successfully
+    const stats = await fsPromises.stat(outputPath);
+    if (stats.size === 0) {
+      throw new Error(`Archive ${zipFileName} was created but is empty (0 bytes)`);
+    }
+    if (stats.size !== archiveSize) {
+      logger.warn(`Archive size mismatch: expected ${archiveSize} bytes, got ${stats.size} bytes`);
+    }
   } catch (error) {
     if (error.code === 'ENOENT') {
       logger.info(`Skipping archive creation for non-existent folder: ${sourceFolder}`);
@@ -245,23 +268,24 @@ async function writeXmlVariants(psXML, newVersion) {
 
   // Create and write schema-only plugin.xml
   try {
-    // Modify for the "DATA" plugin
-    const originalName = psXML.plugin.$.name;
-    if (originalName.length > 35) {
-      psXML.plugin.$.name = originalName.substring(0, 35);
-      logger.warn(`Plugin name truncated for schema XML: ${psXML.plugin.$.name}`);
-    }
-    psXML.plugin.$.name += ' DATA';
-    delete psXML.plugin.access_request; // Remove fields not needed for data plugin
+    // Create a deep clone to avoid mutating the original psXML object
+    const schemaXML = JSON.parse(JSON.stringify(psXML));
 
-    const xmlOutputData = builder.buildObject(psXML);
+    // Modify for the "DATA" plugin
+    const originalName = schemaXML.plugin.$.name;
+    if (originalName.length > 35) {
+      schemaXML.plugin.$.name = originalName.substring(0, 35);
+      logger.warn(`Plugin name truncated for schema XML: ${schemaXML.plugin.$.name}`);
+    }
+    schemaXML.plugin.$.name += ' DATA';
+    delete schemaXML.plugin.access_request; // Remove fields not needed for data plugin
+
+    const xmlOutputData = builder.buildObject(schemaXML);
     await fsPromises.writeFile(path.join(config.schemaDir, 'plugin.xml'), xmlOutputData);
     logger.info(`Created schema-only plugin.xml`);
-
-    // Restore original name for any subsequent operations
-    psXML.plugin.$.name = originalName;
   } catch (error) {
-    logger.error('Could not create schema XML variant:', error);
+    // Schema variant is critical for the build process
+    throw new Error(`Failed to create schema XML variant: ${error.message}`);
   }
 }
 
@@ -293,23 +317,30 @@ async function updatePackageVersions(newVersion) {
 
 /**
  * Keeps only the most recent N archives and deletes the rest.
+ * @param {string[]} excludeFiles - Array of filenames to exclude from pruning (e.g., just-created archives)
  */
-async function pruneArchives() {
+async function pruneArchives(excludeFiles = []) {
   try {
     const files = await fsPromises.readdir(config.archiveDir);
+
+    // Filter out excluded files and get stats for the rest
     const filesWithStats = await Promise.all(
-      files.map(async (file) => {
-        const filePath = path.join(config.archiveDir, file);
-        const stat = await fsPromises.stat(filePath);
-        return { file, mtimeMs: stat.mtimeMs, isDirectory: stat.isDirectory() };
-      })
+      files
+        .filter(file => !excludeFiles.includes(file))
+        .map(async (file) => {
+          const filePath = path.join(config.archiveDir, file);
+          const stat = await fsPromises.stat(filePath);
+          return { file, mtimeMs: stat.mtimeMs, isDirectory: stat.isDirectory() };
+        })
     );
 
+    // Sort by modification time, newest first
     filesWithStats.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
+    // Keep the N most recent, delete the rest
     const filesToDelete = filesWithStats.slice(config.archivesToKeep);
     if (filesToDelete.length > 0) {
-      logger.info(`Pruning old archives (keeping last ${config.archivesToKeep})...`);
+      logger.info(`Pruning old archives (keeping last ${config.archivesToKeep} + ${excludeFiles.length} newly created)...`);
       for (const { file } of filesToDelete) {
         const itemPath = path.join(config.archiveDir, file);
         // Use rm which can handle both files and directories
@@ -318,9 +349,11 @@ async function pruneArchives() {
       }
     }
   } catch (error) {
-    // This check might be redundant with force:true in rm, but it's safe.
-    if (error.code !== 'ENOENT') {
-      logger.error('Error pruning archives:', error);
+    // Archive pruning is a cleanup operation - log but don't fail the build
+    if (error.code === 'ENOENT') {
+      logger.info('Archive directory does not exist, skipping pruning.');
+    } else {
+      logger.warn(`Could not prune old archives: ${error.message}`);
     }
   }
 }
@@ -408,7 +441,8 @@ export async function main() {
     await createPluginZip(config.buildDir, zipFileName);
     await createPluginZip(config.schemaDir, schemaZipFileName);
 
-    await pruneArchives();
+    // Prune old archives, excluding the ones we just created
+    await pruneArchives([zipFileName, schemaZipFileName]);
 
     logger.info('Build process completed successfully!');
   } catch (error) {

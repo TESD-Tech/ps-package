@@ -63,11 +63,8 @@ vi.mock('node:util', () => ({
   promisify: vi.fn(() => vi.fn(() => Promise.resolve())),
 }));
 
-import { promises as fsPromises } from 'node:fs'; // Import fsPromises from the mocked 'node:fs'
-import logger from './utils/logger.js';
-
-// Now, import the functions and config from the script
-import { getNewVersion, slugify, main, removeJunk, copySvelteBuildContents } from './main.js';
+// Use vi.hoisted to ensure mockConfig is available before mocks are processed
+const mockConfig = vi.hoisted(() => ({}));
 
 vi.mock('./main.js', async (importActual) => {
   const actual = await importActual();
@@ -78,6 +75,12 @@ vi.mock('./main.js', async (importActual) => {
     config: mockConfig,
   };
 });
+
+import { promises as fsPromises } from 'node:fs'; // Import fsPromises from the mocked 'node:fs'
+import logger from './utils/logger.js';
+
+// Now, import the functions and config from the script
+import { getNewVersion, slugify, main, removeJunk, copySvelteBuildContents, config } from './main.js';
 
 let mutableConfig = mockConfig; // Assign mockConfig to mutableConfig
 
@@ -225,9 +228,13 @@ describe('Build Script Logic (Vitest)', () => {
       // Set mock implementations for fsPromises
       fsPromises.access.mockResolvedValue(undefined);
       fsPromises.cp.mockResolvedValue(undefined);
+      // Set both mockConfig and config since the function uses config internally
       mockConfig.projectType = 'svelte';
       mockConfig.projectRoot = process.cwd();
       mockConfig.buildDir = path.join(process.cwd(), 'dist');
+      config.projectType = 'svelte';
+      config.projectRoot = process.cwd();
+      config.buildDir = path.join(process.cwd(), 'dist');
     });
 
     it('should copy svelte build contents if projectType is svelte', async () => {
@@ -252,6 +259,7 @@ describe('Build Script Logic (Vitest)', () => {
     });
 
     it('should log a warning if svelte build output is not found (ENOENT)', async () => {
+      config.projectType = 'svelte'; // Ensure it's set to svelte for this test
       fsPromises.access.mockRejectedValue(Object.assign(new Error('No such file or directory'), { code: 'ENOENT' }));
       const psXML = { plugin: { $: { name: 'Test Plugin' } } };
       await copySvelteBuildContents(psXML);
@@ -261,6 +269,7 @@ describe('Build Script Logic (Vitest)', () => {
     });
 
     it('should log an error if copying fails for other reasons', async () => {
+      config.projectType = 'svelte'; // Ensure it's set to svelte for this test
       const mockError = new Error('Permission denied');
       fsPromises.access.mockResolvedValue(undefined);
       fsPromises.cp.mockRejectedValue(mockError);

@@ -1,1 +1,0 @@
-High Priority Rule: To prevent errors, if a file editing tool fails or reports no changes were made, you must resynchronize your knowledge by reading the file again before re-attempting the edit. Do not assume your cached version of the file is correct.
