@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<plugin name="Test Plugin DATA" xmlns="http://plugin.powerschool.pearson.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" description="Test plugin for ps-package development" version="25.10.04" xsi:schemaLocation="http://plugin.powerschool.pearson.com plugin.xsd">
+<plugin name="Test Plugin DATA" xmlns="http://plugin.powerschool.pearson.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" description="Test plugin for ps-package development" version="25.10.05" xsi:schemaLocation="http://plugin.powerschool.pearson.com plugin.xsd">
   <publisher name="Benjamin Kemp">
     <contact email="kempb@tesd.net"/>
   </publisher>
