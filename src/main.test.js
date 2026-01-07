@@ -1,139 +1,164 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
 import { EventEmitter } from 'node:events';
-import * as xml2js from 'xml2js';
-import archiver from 'archiver';
 import path from 'node:path';
-import *as stream from 'node:stream';
 
-// Mock the external modules before importing the script to be tested.
-// Vitest hoists these mocks, so they apply before any imports run.
-vi.mock('node:fs', () => ({
+// Create mock implementations
+const mockFs = {
   promises: {
-    readdir: vi.fn(),
-    stat: vi.fn(),
-    unlink: vi.fn(),
-    access: vi.fn(),
-    cp: vi.fn(),
-    readFile: vi.fn(),
-    mkdir: vi.fn(),
-    writeFile: vi.fn(),
-    rm: vi.fn(),
+    readdir: mock(),
+    stat: mock(),
+    unlink: mock(),
+    access: mock(),
+    cp: mock(),
+    readFile: mock(),
+    mkdir: mock(),
+    writeFile: mock(),
+    rm: mock(),
   },
-  createWriteStream: vi.fn(), // Mock createWriteStream as it's used directly from 'node:fs'
-}));
+  createWriteStream: mock(),
+};
 
-// Mock the logger module
-vi.mock('./utils/logger.js', () => ({
-  default: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
-}));
+const mockLogger = {
+  info: mock(),
+  warn: mock(),
+  error: mock(),
+};
 
-vi.mock('xml2js', () => ({
-  default: {
-    parseStringPromise: vi.fn(),
-    Builder: vi.fn().mockImplementation(function() {
-      this.buildObject = vi.fn((obj) => JSON.stringify(obj));
-    }),
+// Create a Builder class for xml2js mock
+class MockBuilder {
+  constructor() {
+    this.buildObject = mock((obj) => JSON.stringify(obj));
   }
-}));
+}
 
-vi.mock('archiver', async () => {
-  const { EventEmitter } = await vi.importActual('node:events');
-  class MockArchiver extends EventEmitter {
-    constructor() {
-      super();
-      this.on = vi.fn(this.on.bind(this));
-      this.once = vi.fn(this.once.bind(this));
-      this.pipe = vi.fn().mockReturnThis();
-      this.directory = vi.fn().mockReturnThis();
-      this.finalize = vi.fn(function() {
-        this.emit('end');
-        return Promise.resolve();
-      }).bind(this);
-      this.pointer = vi.fn().mockReturnValue(1234);
-    }
+const mockXml2js = {
+  default: {
+    parseStringPromise: mock(),
+    Builder: MockBuilder,
   }
-  return { default: vi.fn(() => new MockArchiver()) };
-});
+};
 
-vi.mock('node:util', () => ({
-  promisify: vi.fn(() => vi.fn(() => Promise.resolve())),
-}));
+class MockArchiver extends EventEmitter {
+  constructor() {
+    super();
+    this.on = mock(this.on.bind(this));
+    this.once = mock(this.once.bind(this));
+    this.pipe = mock(() => this);
+    this.directory = mock(() => this);
+    this.finalize = mock(() => {
+      this.emit('end');
+      return Promise.resolve();
+    });
+    this.pointer = mock(() => 1234);
+  }
+}
 
-// Use vi.hoisted to ensure mockConfig is available before mocks are processed
-const mockConfig = vi.hoisted(() => ({}));
+const mockArchiver = mock(() => new MockArchiver());
 
-vi.mock('./main.js', async (importActual) => {
-  const actual = await importActual();
-  // Initialize mockConfig with actual config values
-  Object.assign(mockConfig, actual.config);
-  return {
-    ...actual,
-    config: mockConfig,
-  };
-});
+const mockUtil = {
+  promisify: mock(() => mock(() => Promise.resolve())),
+};
 
-import { promises as fsPromises } from 'node:fs'; // Import fsPromises from the mocked 'node:fs'
+// Mock modules
+mock.module('node:fs', () => mockFs);
+mock.module('./utils/logger.js', () => ({ default: mockLogger }));
+mock.module('xml2js', () => mockXml2js);
+mock.module('archiver', () => ({ default: mockArchiver }));
+mock.module('node:util', () => mockUtil);
+
+// Import after mocking
+import { promises as fsPromises } from 'node:fs';
 import logger from './utils/logger.js';
-
-// Now, import the functions and config from the script
 import { getNewVersion, slugify, main, removeJunk, copySvelteBuildContents, config } from './main.js';
 
-let mutableConfig = mockConfig; // Assign mockConfig to mutableConfig
+let mutableConfig = config;
 
-describe('Build Script Logic (Vitest)', () => {
+describe('Build Script Logic (Bun)', () => {
 
   // Spy on console methods to prevent polluting test output
   beforeEach(() => {
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    spyOn(console, 'log').mockImplementation(() => {});
+    spyOn(console, 'warn').mockImplementation(() => {});
+    spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    // Clear all mock calls
+    mockFs.promises.readdir.mockClear();
+    mockFs.promises.stat.mockClear();
+    mockFs.promises.unlink.mockClear();
+    mockFs.promises.access.mockClear();
+    mockFs.promises.cp.mockClear();
+    mockFs.promises.readFile.mockClear();
+    mockFs.promises.mkdir.mockClear();
+    mockFs.promises.writeFile.mockClear();
+    mockFs.promises.rm.mockClear();
+    mockFs.createWriteStream.mockClear();
+    mockLogger.info.mockClear();
+    mockLogger.warn.mockClear();
+    mockLogger.error.mockClear();
   });
 
   describe('getNewVersion', () => {
-    beforeEach(() => {
-      // Use fake timers to control the current date in tests
-      vi.useFakeTimers();
-    });
-
-    afterEach(() => {
-      // Restore real timers after each test
-      vi.useRealTimers();
-    });
-
     it('should correctly increment the patch version', () => {
-      vi.setSystemTime(new Date('2025-07-23T12:00:00Z'));
+      // Mock Date for this test
+      const originalDate = global.Date;
+      global.Date = class extends Date {
+        constructor() {
+          super('2025-07-23T12:00:00Z');
+        }
+      };
+
       const currentVersion = '25.07.01';
       const newVersion = getNewVersion(currentVersion);
       expect(newVersion).toBe('25.07.02');
+
+      global.Date = originalDate;
     });
 
     it('should reset the patch and increment the month if the month has changed', () => {
-      vi.setSystemTime(new Date('2025-08-01T12:00:00Z'));
+      const originalDate = global.Date;
+      global.Date = class extends Date {
+        constructor() {
+          super('2025-08-01T12:00:00Z');
+        }
+      };
+
       const currentVersion = '25.07.99'; // Last version from July
       const newVersion = getNewVersion(currentVersion);
       expect(newVersion).toBe('25.08.01');
+
+      global.Date = originalDate;
     });
 
     it('should reset patch and month if the year has changed', () => {
-      vi.setSystemTime(new Date('2026-01-10T12:00:00Z'));
+      const originalDate = global.Date;
+      global.Date = class extends Date {
+        constructor() {
+          super('2026-01-10T12:00:00Z');
+        }
+      };
+
       const currentVersion = '25.12.30'; // Last version from 2025
       const newVersion = getNewVersion(currentVersion);
       expect(newVersion).toBe('26.01.01');
+
+      global.Date = originalDate;
     });
 
     it('should fall back to a new version if the current version is invalid', () => {
-      vi.setSystemTime(new Date('2025-07-23T12:00:00Z'));
+      const originalDate = global.Date;
+      global.Date = class extends Date {
+        constructor() {
+          super('2025-07-23T12:00:00Z');
+        }
+      };
+
       const newVersion = getNewVersion('invalid-version');
       expect(newVersion).toBe('25.07.01');
       expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Could not parse current version'));
+
+      global.Date = originalDate;
     });
   });
 
@@ -160,7 +185,12 @@ describe('Build Script Logic (Vitest)', () => {
     const nestedJunkFile = '.DS_Store';
 
     beforeEach(() => {
-      vi.clearAllMocks();
+      // Reset mocks
+      mockFs.promises.readdir.mockClear();
+      mockFs.promises.stat.mockClear();
+      mockFs.promises.unlink.mockClear();
+      mockLogger.info.mockClear();
+      mockLogger.warn.mockClear();
       // Mock config.junkFiles for this test suite
       config.junkFiles = ['.DS_Store', 'Thumbs.db'];
     });
@@ -224,12 +254,17 @@ describe('Build Script Logic (Vitest)', () => {
     const svelteTargetDir = path.join(process.cwd(), 'dist', 'WEB_ROOT', 'Test_Plugin'); // Assuming slugified name
 
     beforeEach(() => {
-      vi.clearAllMocks();
+      // Reset mocks
+      mockFs.promises.access.mockClear();
+      mockFs.promises.cp.mockClear();
+      mockLogger.info.mockClear();
+      mockLogger.warn.mockClear();
+      mockLogger.error.mockClear();
       // Set mock implementations for fsPromises
       fsPromises.access.mockResolvedValue(undefined);
       fsPromises.cp.mockResolvedValue(undefined);
-      // Set mockConfig properties since it's what the mocked config uses
-      Object.assign(mockConfig, {
+      // Set config properties
+      Object.assign(config, {
         projectType: 'svelte',
         projectRoot: process.cwd(),
         buildDir: path.join(process.cwd(), 'dist'),
@@ -249,7 +284,7 @@ describe('Build Script Logic (Vitest)', () => {
     });
 
     it('should not copy svelte build contents if projectType is not svelte', async () => {
-      mockConfig.projectType = 'vue'; // Set to a different type
+      config.projectType = 'vue'; // Set to a different type
       await copySvelteBuildContents({}); // Call with dummy psXML
 
       expect(fsPromises.access).not.toHaveBeenCalled();
@@ -258,7 +293,7 @@ describe('Build Script Logic (Vitest)', () => {
     });
 
     it.skip('should log a warning if svelte build output is not found (ENOENT)', async () => {
-      mockConfig.projectType = 'svelte'; // Ensure it's set to svelte for this test
+      config.projectType = 'svelte'; // Ensure it's set to svelte for this test
       fsPromises.access.mockRejectedValue(Object.assign(new Error('No such file or directory'), { code: 'ENOENT' }));
       const psXML = { plugin: { $: { name: 'Test Plugin' } } };
       await copySvelteBuildContents(psXML);
@@ -268,7 +303,7 @@ describe('Build Script Logic (Vitest)', () => {
     });
 
     it.skip('should log an error if copying fails for other reasons', async () => {
-      mockConfig.projectType = 'svelte'; // Ensure it's set to svelte for this test
+      config.projectType = 'svelte'; // Ensure it's set to svelte for this test
       const mockError = new Error('Permission denied');
       fsPromises.access.mockResolvedValue(undefined);
       fsPromises.cp.mockRejectedValue(mockError);
@@ -299,7 +334,7 @@ describe('Build Script Logic (Vitest)', () => {
         .mockResolvedValueOnce('<plugin><name>Test Plugin</name></plugin>'); // plugin.xml
 
       // Mock the XML parsing
-      xml2js.default.parseStringPromise.mockResolvedValue({
+      mockXml2js.default.parseStringPromise.mockResolvedValue({
         plugin: {
           $: { name: 'Test Plugin', version: '25.07.01' }
         }
@@ -310,7 +345,7 @@ describe('Build Script Logic (Vitest)', () => {
       fsPromises.stat.mockResolvedValue({ mtimeMs: Date.now(), isDirectory: () => false });
 
       // Mock process.exit to prevent the test runner from exiting
-      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {});
+      const exitSpy = spyOn(process, 'exit').mockImplementation(() => {});
 
       await main();
 
@@ -319,7 +354,7 @@ describe('Build Script Logic (Vitest)', () => {
       expect(fsPromises.mkdir).toHaveBeenCalledWith(path.join(process.cwd(), 'dist'), { recursive: true });
       expect(fsPromises.writeFile).toHaveBeenCalledWith(path.join(process.cwd(), 'package.json'), expect.any(String));
       expect(fsPromises.cp).toHaveBeenCalled(); // mergePSfolders was called
-      expect(archiver).toHaveBeenCalledTimes(2); // createPluginZip called twice
+      expect(mockArchiver).toHaveBeenCalledTimes(2); // createPluginZip called twice
       expect(fsPromises.rm).toHaveBeenCalled(); // pruneArchives was called
       expect(exitSpy).not.toHaveBeenCalled();
     });
