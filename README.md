@@ -10,15 +10,62 @@ This package automates the process of building and packaging a PowerSchool plugi
 
 ## Installation
 
-To install the package, run the following command from the root directory of your plugin project:
+### Option 1: Using npm/pnpm/yarn/bun (Requires Node.js or Bun)
+
+Install globally or as a dev dependency in your project:
 
 ```bash
+# Global installation
+npm install -g @tesd-tech/ps-package
+# or
+bun install -g @tesd-tech/ps-package
+
+# Or as dev dependency in your project
+npm install -D @tesd-tech/ps-package
+# or with pnpm
 pnpm i -D @tesd-tech/ps-package
+# or with bun
+bun add -d @tesd-tech/ps-package
 ```
 
-## Usage
+### Option 2: Standalone Executable (No runtime required)
+
+Download the appropriate executable for your platform from [GitHub Releases](https://github.com/TESD-Tech/ps-package/releases):
+
+**macOS:**
 ```bash
+# Intel Mac
+curl -L -o ps-package https://github.com/TESD-Tech/ps-package/releases/latest/download/ps-package-darwin-x64
+chmod +x ps-package
+
+# Apple Silicon Mac
+curl -L -o ps-package https://github.com/TESD-Tech/ps-package/releases/latest/download/ps-package-darwin-arm64
+chmod +x ps-package
+
+# Move to PATH (optional)
+sudo mv ps-package /usr/local/bin/
+```
+
+**Linux:**
+```bash
+curl -L -o ps-package https://github.com/TESD-Tech/ps-package/releases/latest/download/ps-package-linux-x64
+chmod +x ps-package
+sudo mv ps-package /usr/local/bin/  # Optional
+```
+
+**Windows:**
+Download `ps-package-windows-x64.exe` from the releases page, rename to `ps-package.exe`, and add to your PATH.
+
+## Usage
+
+```bash
+# If installed globally or executable in PATH
+ps-package
+
+# If installed as project dependency
 npx ps-package
+# or
+bunx ps-package
 ```
 
 ## Options
@@ -38,6 +85,27 @@ The package accepts two optional command-line arguments:
   * `dist`: The directory where the plugin's built files are placed.
   * `plugin_archive`: The directory where ZIP files of the plugin and its schema are created.
 * The package will overwrite any existing files in the `dist` and `plugin_archive` directories.
+
+## Development
+
+This project uses Bun for development:
+
+```bash
+# Install dependencies
+bun install
+
+# Run tests
+bun test
+
+# Build plugin (tests the CLI)
+bun run build
+
+# Run tests with coverage
+bun test --coverage
+
+# Build executables locally (for current platform only)
+bun run build:executables
+```
 
 ## Credits
 
