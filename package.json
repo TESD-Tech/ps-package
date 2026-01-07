@@ -33,8 +33,6 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^6.5.1",
-    "@vitest/coverage-v8": "^4.0.15",
-    "eslint": "^9.39.1",
-    "vitest": "^4.0.15"
+    "eslint": "^9.39.1"
   }
 }
