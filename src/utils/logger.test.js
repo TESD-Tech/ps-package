@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, spyOn, beforeEach } from 'bun:test';
 import logger from '../utils/logger.js';
 
 describe('Logger Utility', () => {
@@ -7,9 +7,9 @@ describe('Logger Utility', () => {
   let consoleErrorSpy;
 
   beforeEach(() => {
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleLogSpy = spyOn(console, 'log').mockImplementation(() => {});
+    consoleWarnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+    consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
   });
 
   it('should log info messages correctly', () => {
