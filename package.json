@@ -8,9 +8,11 @@
   },
   "main": "index.js",
   "scripts": {
-    "build": "node index.js",
-    "test": "vitest",
-    "release": "standard-version && git push --follow-tags && npm publish"
+    "build": "bun run index.js",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "release": "standard-version && git push --follow-tags && npm publish",
+    "build:executables": "node scripts/build-executables.js"
   },
   "repository": {
     "type": "git",

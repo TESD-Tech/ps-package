@@ -108,6 +108,12 @@ dist
 
 .DS_Store
 
+# Bun
+bun.lock
+bin/
+ps-package-*
+*.exe
+
 # Gemini CLI specific files
 GEMINI.md
 PLAN.md
