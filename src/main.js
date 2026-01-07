@@ -451,8 +451,3 @@ export async function main() {
     throw error; // Throw the error instead of exiting
   }
 }
-
-// --- EXECUTION ---
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
-}
