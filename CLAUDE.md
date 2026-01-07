@@ -10,27 +10,30 @@ ps-package is a CLI tool that automates building and packaging PowerSchool plugi
 
 ### Build the plugin
 ```bash
-node index.js
-# or
-pnpm run build
+bun run build
 ```
 
 ### Run tests
 ```bash
-pnpm test
-# or
-vitest
+bun test
 ```
 
-### Run tests in watch mode
+### Run tests with coverage
 ```bash
-vitest --watch
+bun test --coverage
+```
+
+### Build executables (local testing only)
+```bash
+bun run build:executables
 ```
 
 ### Release (version, tag, push, publish)
 ```bash
-pnpm run release
+bun run release
 ```
+
+**Note:** The project uses Bun as the primary package manager and test runner. However, the published npm package works with both Node.js and Bun runtimes for maximum compatibility.
 
 ## Architecture
 
