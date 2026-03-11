@@ -121,6 +121,11 @@ async function mergePSfolders() {
 
   for (const folder of config.psFolders) {
     const sourcePath = path.join(config.powerSchoolSourceDir, folder);
+    // Robustly skip folders from any 'examples' directory
+    if (sourcePath.includes(`${path.sep}examples${path.sep}`)) {
+      logger.info(`  - Skipping folder from examples: ${sourcePath}`);
+      continue;
+    }
     // Specific folders go into the schema directory.
     const destPath = (folder === 'user_schema_root' || folder === 'MessageKeys')
       ? path.join(config.schemaDir, folder)
