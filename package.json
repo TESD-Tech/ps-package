@@ -1,6 +1,6 @@
 {
   "name": "@tesd-tech/ps-package",
-  "version": "26.03.01",
+  "version": "26.06.01",
   "type": "module",
   "description": "Create and manage PowerSchool plugin archives",
   "bin": {
@@ -34,5 +34,10 @@
     "@vitest/coverage-v8": "^4.0.15",
     "eslint": "^9.39.1",
     "vitest": "^4.0.15"
+  },
+  "pnpm": {
+    "patched-dependencies": {
+      "lazystream@1.0.1": "patches/lazystream@1.0.1.patch"
+    }
   }
 }
