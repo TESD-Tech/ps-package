@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import path from 'node:path';
 import xml2js from 'xml2js';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import logger from './utils/logger.js';
 import * as util from 'node:util';
 import * as stream from 'node:stream';
@@ -170,7 +170,7 @@ async function createPluginZip(sourceFolder, zipFileName) {
     await fsPromises.access(sourceFolder); // Check if source folder exists.
     const outputPath = path.join(config.archiveDir, zipFileName);
     const output = fs.createWriteStream(outputPath);
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
 
     const streamPipeline = util.promisify(stream.pipeline);
 
