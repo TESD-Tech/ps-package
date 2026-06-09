@@ -84,6 +84,21 @@ export function slugify(text) {
 }
 
 /**
+ * Sanitizes a name for safe use in file paths. Strips directory components and
+ * rejects any value that still contains path separators or traversal sequences.
+ * @param {string} name - The name to sanitize.
+ * @returns {string} The sanitized name.
+ * @throws {Error} If the name contains path traversal or separator characters.
+ */
+export function sanitizeName(name) {
+  const sanitized = path.basename(name);
+  if (!sanitized || sanitized.includes('/') || sanitized.includes('\\') || sanitized.includes('..')) {
+    throw new Error(`Unsafe plugin name rejected: "${name}"`);
+  }
+  return sanitized;
+}
+
+/**
  * Recursively removes specified junk files from a directory.
  * @param {string} dir - The directory to clean.
  */
@@ -168,7 +183,11 @@ async function mergePSfolders() {
 async function createPluginZip(sourceFolder, zipFileName) {
   try {
     await fsPromises.access(sourceFolder); // Check if source folder exists.
-    const outputPath = path.join(config.archiveDir, zipFileName);
+    const outputPath = path.resolve(config.archiveDir, zipFileName);
+    const archiveDirResolved = path.resolve(config.archiveDir);
+    if (!outputPath.startsWith(archiveDirResolved + path.sep)) {
+      throw new Error(`Unsafe zip output path rejected: "${outputPath}"`);
+    }
     const output = fs.createWriteStream(outputPath);
     const archive = new ZipArchive({ zlib: { level: 9 } });
 
@@ -393,7 +412,7 @@ export async function copySvelteBuildContents(psXML) {
   if (config.projectType !== 'svelte') return;
 
   try {
-    const pluginName = slugify(psXML.plugin.$.name);
+    const pluginName = sanitizeName(slugify(psXML.plugin.$.name));
     const sourceDir = path.join(config.projectRoot, 'public', 'build');
     const targetDir = path.join(config.buildDir, 'WEB_ROOT', pluginName);
 
@@ -440,7 +459,7 @@ export async function main() {
 
     // Create Archives
     logger.info('Creating zip archives...');
-    const slugName = slugify(psXML.plugin.$.name);
+    const slugName = sanitizeName(slugify(psXML.plugin.$.name));
     const zipFileName = `${slugName}-${newVersion}.zip`;
     const schemaZipFileName = `DATA-${zipFileName}`;
     await createPluginZip(config.buildDir, zipFileName);
