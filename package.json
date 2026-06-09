@@ -26,14 +26,15 @@
   },
   "homepage": "https://github.com/TESD-Tech/ps-package#readme",
   "dependencies": {
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^6.5.1",
-    "@vitest/coverage-v8": "^4.0.15",
-    "eslint": "^9.39.1",
-    "vitest": "^4.0.15"
+    "@antfu/eslint-config": "^9.0.0",
+    "@vitest/coverage-v8": "^4.1.8",
+    "eslint": "^10.4.1",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
   },
   "pnpm": {
     "patched-dependencies": {
