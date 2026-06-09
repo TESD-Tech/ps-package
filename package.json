@@ -1,6 +1,6 @@
 {
   "name": "@tesd-tech/ps-package",
-  "version": "26.06.03",
+  "version": "26.06.04",
   "type": "module",
   "description": "Create and manage PowerSchool plugin archives",
   "bin": {
