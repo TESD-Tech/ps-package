@@ -127,8 +127,8 @@ export async function removeJunk(dir) {
 }
 
 /**
- * Merges PowerSchool-specific folders from the source directory into a target directory.
- * @param {string} targetDir - The destination directory (e.g., 'dist' or 'schema').
+ * Merges PowerSchool-specific folders from the source directory into the build (dist/)
+ * and schema (schema/) directories.
  */
 async function mergePSfolders() {
   logger.info('Merging PowerSchool folders...');
@@ -136,11 +136,6 @@ async function mergePSfolders() {
 
   for (const folder of config.psFolders) {
     const sourcePath = path.join(config.powerSchoolSourceDir, folder);
-    // Robustly skip folders from any 'examples' directory
-    if (sourcePath.includes(`${path.sep}examples${path.sep}`)) {
-      logger.info(`  - Skipping folder from examples: ${sourcePath}`);
-      continue;
-    }
     // Specific folders go into the schema directory.
     const destPath = (folder === 'user_schema_root' || folder === 'MessageKeys')
       ? path.join(config.schemaDir, folder)
@@ -198,13 +193,12 @@ async function createPluginZip(sourceFolder, zipFileName) {
         logger.warn('Archiver warning:', err);
       } else {
         logger.error('Archiver error:', err);
-        throw err; // Re-throw other warnings as errors
       }
     });
 
+    // stream.pipeline below rejects on archive errors, so just log here.
     archive.on('error', (err) => {
       logger.error('Archiver error:', err);
-      throw err;
     });
 
     archive.directory(sourceFolder, false);
@@ -235,9 +229,11 @@ async function createPluginZip(sourceFolder, zipFileName) {
 /**
  * Recursively finds all JSON files in a directory and updates their 'version' property.
  * @param {string} dir - The directory to search.
+ * Files without a 'version' key are left untouched.
  * @param {string} newVersion - The new version string.
+ * @param {Map<string, string>} [backups] - Collects original file contents so a failed build can restore them.
  */
-async function updateJsonVersionsInDir(dir, newVersion) {
+async function updateJsonVersionsInDir(dir, newVersion, backups) {
   try {
     const files = await fsPromises.readdir(dir);
     for (const file of files) {
@@ -245,23 +241,28 @@ async function updateJsonVersionsInDir(dir, newVersion) {
       const stat = await fsPromises.stat(fullPath);
 
       if (stat.isDirectory()) {
-        await updateJsonVersionsInDir(fullPath, newVersion);
+        await updateJsonVersionsInDir(fullPath, newVersion, backups);
       } else if (path.extname(file) === '.json') {
         try {
           const jsonString = await fsPromises.readFile(fullPath, 'utf8');
           const jsonObj = JSON.parse(jsonString);
 
           // Simple recursive function to find and update 'version' keys.
+          let found = false;
           const updateVersionInObject = (obj) => {
             for (const key in obj) {
-              if (key === 'version') obj[key] = newVersion;
-              else if (typeof obj[key] === 'object' && obj[key] !== null) {
+              if (key === 'version') {
+                obj[key] = newVersion;
+                found = true;
+              } else if (typeof obj[key] === 'object' && obj[key] !== null) {
                 updateVersionInObject(obj[key]);
               }
             }
           };
 
           updateVersionInObject(jsonObj);
+          if (!found) continue;
+          backups?.set(fullPath, jsonString);
           await fsPromises.writeFile(fullPath, JSON.stringify(jsonObj, null, 2));
         } catch (parseError) {
           logger.warn(`Could not parse or update JSON file: ${fullPath}`, parseError);
@@ -317,11 +318,13 @@ async function writeXmlVariants(psXML, newVersion) {
 /**
  * Updates the version in package.json and plugin.xml.
  * @param {string} newVersion - The new version string.
+ * @param {Map<string, string>} backups - Collects original file contents for rollback.
  * @returns {Promise<object>} The parsed plugin.xml object.
  */
-async function updatePackageVersions(newVersion) {
+async function updatePackageVersions(newVersion, backups) {
   // Update package.json
   const packageJsonString = await fsPromises.readFile(path.join(config.projectRoot, 'package.json'), 'utf8');
+  backups.set(path.join(config.projectRoot, 'package.json'), packageJsonString);
   const packageJson = JSON.parse(packageJsonString);
   packageJson.version = newVersion;
   await fsPromises.writeFile(path.join(config.projectRoot, 'package.json'), JSON.stringify(packageJson, null, 2));
@@ -329,47 +332,54 @@ async function updatePackageVersions(newVersion) {
 
   // Update plugin.xml
   const xmlString = await fsPromises.readFile(path.join(config.projectRoot, 'plugin.xml'), 'utf8');
+  backups.set(path.join(config.projectRoot, 'plugin.xml'), xmlString);
   const psXML = await xml2js.parseStringPromise(xmlString);
   await writeXmlVariants(psXML, newVersion);
 
   // Update any other JSON files that might contain a version
   const pageCatalogingDir = path.join(config.powerSchoolSourceDir, 'pagecataloging');
-  await updateJsonVersionsInDir(pageCatalogingDir, newVersion);
+  await updateJsonVersionsInDir(pageCatalogingDir, newVersion, backups);
 
   return psXML;
 }
 
 /**
- * Keeps only the most recent N archives and deletes the rest.
- * @param {string[]} excludeFiles - Array of filenames to exclude from pruning (e.g., just-created archives)
+ * Keeps only the most recent N builds and deletes the rest. A build is a plugin zip plus
+ * its DATA- counterpart, so both files count as one.
+ * @param {string[]} excludeFiles - Filenames to exclude from pruning (the just-created archives)
  */
 async function pruneArchives(excludeFiles = []) {
   try {
     const files = await fsPromises.readdir(config.archiveDir);
 
-    // Filter out excluded files and get stats for the rest
-    const filesWithStats = await Promise.all(
+    const entries = await Promise.all(
       files
-        .filter(file => !excludeFiles.includes(file))
+        .filter(file => file.endsWith('.zip') && !excludeFiles.includes(file))
         .map(async (file) => {
-          const filePath = path.join(config.archiveDir, file);
-          const stat = await fsPromises.stat(filePath);
-          return { file, mtimeMs: stat.mtimeMs, isDirectory: stat.isDirectory() };
+          const stat = await fsPromises.stat(path.join(config.archiveDir, file));
+          return { file, mtimeMs: stat.mtimeMs, build: file.replace(/^DATA-/, '') };
         })
     );
 
-    // Sort by modification time, newest first
-    filesWithStats.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    const builds = new Map();
+    for (const entry of entries) {
+      const group = builds.get(entry.build) ?? { newest: 0, files: [] };
+      group.newest = Math.max(group.newest, entry.mtimeMs);
+      group.files.push(entry.file);
+      builds.set(entry.build, group);
+    }
 
-    // Keep the N most recent, delete the rest
-    const filesToDelete = filesWithStats.slice(config.archivesToKeep);
-    if (filesToDelete.length > 0) {
-      logger.info(`Pruning old archives (keeping last ${config.archivesToKeep} + ${excludeFiles.length} newly created)...`);
-      for (const { file } of filesToDelete) {
-        const itemPath = path.join(config.archiveDir, file);
-        // Use rm which can handle both files and directories
-        await fsPromises.rm(itemPath, { recursive: true, force: true });
-        logger.info(`  - Deleted old archive item: ${file}`);
+    const stale = [...builds.values()]
+      .sort((a, b) => b.newest - a.newest)
+      .slice(config.archivesToKeep);
+
+    if (stale.length > 0) {
+      logger.info(`Pruning old archives (keeping last ${config.archivesToKeep} builds + the newly created one)...`);
+      for (const { files: staleFiles } of stale) {
+        for (const file of staleFiles) {
+          await fsPromises.rm(path.join(config.archiveDir, file), { recursive: true, force: true });
+          logger.info(`  - Deleted old archive item: ${file}`);
+        }
       }
     }
   } catch (error) {
@@ -433,8 +443,11 @@ export async function copySvelteBuildContents(psXML) {
  */
 async function ensureDirectoriesExist() {
   logger.info('Verifying directory structure...');
-  const dirs = [config.buildDir, config.archiveDir, config.schemaDir];
-  for (const dir of dirs) {
+  // Build output is regenerated every run; wipe it so deleted source files don't ship.
+  for (const dir of [config.buildDir, config.schemaDir]) {
+    await fsPromises.rm(dir, { recursive: true, force: true });
+  }
+  for (const dir of [config.buildDir, config.archiveDir, config.schemaDir]) {
     await fsPromises.mkdir(dir, { recursive: true });
   }
 }
@@ -446,34 +459,54 @@ export async function main() {
   logger.info('Starting plugin build process...');
   try {
     const packageJsonString = await fsPromises.readFile(path.join(config.projectRoot, 'package.json'), 'utf8');
-    const { version: currentVersion, name: pluginName } = JSON.parse(packageJsonString);
+    const packageJson = JSON.parse(packageJsonString);
+    const { version: currentVersion, name: pluginName } = packageJson;
+    // Optional override: "ps-package": { "projectType": "svelte" } in package.json
+    config.projectType = packageJson['ps-package']?.projectType ?? config.projectType;
     const newVersion = getNewVersion(currentVersion);
 
     logger.info(`Plugin: ${pluginName}`);
     logger.info(`Current Version: ${currentVersion} -> New Version: ${newVersion}`);
 
     await ensureDirectoriesExist();
-    const psXML = await updatePackageVersions(newVersion);
-    await prepareBuildDirectory();
-    await copySvelteBuildContents(psXML);
-
-    // Create Archives
-    logger.info('Creating zip archives...');
-    const slugName = sanitizeName(slugify(psXML.plugin.$.name));
-    const zipFileName = `${slugName}-${newVersion}.zip`;
-    const schemaZipFileName = `DATA-${zipFileName}`;
-    await createPluginZip(config.buildDir, zipFileName);
-    await createPluginZip(config.schemaDir, schemaZipFileName);
-
-    // Prune old archives, excluding the ones we just created
-    await pruneArchives([zipFileName, schemaZipFileName]);
-
-    logger.info('Build process completed successfully!');
+    // Versions are bumped in source files up front; restore them if the build fails.
+    const backups = new Map();
+    try {
+      return await build(newVersion, backups);
+    } catch (error) {
+      for (const [file, content] of backups) {
+        await fsPromises.writeFile(file, content);
+      }
+      if (backups.size > 0) logger.warn('Build failed; restored original version files.');
+      throw error;
+    }
   } catch (error) {
     logger.error('\n--- BUILD FAILED ---');
     logger.error(error);
     throw error; // Throw the error instead of exiting
   }
+}
+
+/**
+ * Runs the version bump, merge, and archive steps.
+ */
+async function build(newVersion, backups) {
+  const psXML = await updatePackageVersions(newVersion, backups);
+  await prepareBuildDirectory();
+  await copySvelteBuildContents(psXML);
+
+  // Create Archives
+  logger.info('Creating zip archives...');
+  const slugName = sanitizeName(slugify(psXML.plugin.$.name));
+  const zipFileName = `${slugName}-${newVersion}.zip`;
+  const schemaZipFileName = `DATA-${zipFileName}`;
+  await createPluginZip(config.buildDir, zipFileName);
+  await createPluginZip(config.schemaDir, schemaZipFileName);
+
+  // Prune old archives, excluding the ones we just created
+  await pruneArchives([zipFileName, schemaZipFileName]);
+
+  logger.info('Build process completed successfully!');
 }
 
 // --- EXECUTION ---

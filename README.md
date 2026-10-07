@@ -6,7 +6,7 @@ This package automates the process of building and packaging a PowerSchool plugi
 * **Merging PowerSchool-specific folders into the build directory**
 * **Removing junk files from the build directory**
 * **Creating ZIP files for the plugin and its schema**
-* **Pruning the archive directory to keep only the most recent ZIP files**
+* **Pruning the archive directory to keep only the most recent builds**
 
 ## Installation
 
@@ -23,10 +23,15 @@ npx ps-package
 
 ## Options
 
-The package accepts two optional command-line arguments:
+The CLI takes no arguments. To build a Svelte project, add this to your project's `package.json` (defaults to `vue`):
 
-* **`source`:** The source directory for the plugin files. This defaults to `src`.
-* **`type`:** The plugin type. This can be `vue` or `svelte`. This defaults to `vue`.
+```json
+{
+  "ps-package": { "projectType": "svelte" }
+}
+```
+
+Svelte builds copy `public/build` into `dist/WEB_ROOT/<plugin name>`.
 
 ## Additional Notes
 
@@ -37,7 +42,10 @@ The package accepts two optional command-line arguments:
 * The package creates the following directories:
   * `dist`: The directory where the plugin's built files are placed.
   * `plugin_archive`: The directory where ZIP files of the plugin and its schema are created.
-* The package will overwrite any existing files in the `dist` and `plugin_archive` directories.
+* `dist` and `schema` are deleted and regenerated on every build, so files removed from source don't ship. Don't hand-edit them.
+* Versions use CalVer (`YY.MM.PATCH`). The patch resets to `01` when the year or month changes.
+* The version bump is written to `package.json`, `plugin.xml` and any pagecataloging JSON that has a `version` key. If the build fails, those files are restored.
+* The 10 most recent builds are kept in `plugin_archive` (a plugin ZIP and its `DATA-` ZIP count as one build), plus the one just created. Only `.zip` files are pruned.
 
 ## Credits
 
